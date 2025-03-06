@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Derafu: Project - Slogan</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.0/css/all.min.css" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.1.0/github-markdown-light.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/command-line/prism-command-line.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/match-braces/prism-match-braces.min.css" rel="stylesheet" />
+    <link href="https://derafu.org/foundation/css/styles.min.css" rel="stylesheet" />
+    </head>
+<body class="derafu-theme-earthstone">
+                <div id="header-container" class="sticky-top"></div>
+    
+            <div class="container">
+            <div class="row">
+                <main class="col-md-9">
+                    <div class="container py-4">
+    <div class="markdown-body"><h1><a id="content-certificate-service-documentation" href="certificate-service.html#content-certificate-service-documentation" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Certificate Service Documentation</h1>
+<p>The <code>CertificateService</code> is the main entry point for working with digital certificates in the Derafu Certificate library. It provides a unified interface to all the key functionality like loading, validating, and creating certificates.</p>
+<ul class="table-of-contents">
+<li><a href="certificate-service.html#content-overview">Overview</a></li>
+<li><a href="certificate-service.html#content-basic-usage">Basic Usage</a>
+<ul>
+<li><a href="certificate-service.html#content-setting-up-the-service">Setting Up the Service</a></li>
+<li><a href="certificate-service.html#content-loading-certificates">Loading Certificates</a></li>
+<li><a href="certificate-service.html#content-validating-certificates">Validating Certificates</a></li>
+<li><a href="certificate-service.html#content-creating-test-certificates">Creating Test Certificates</a></li>
+</ul>
+</li>
+<li><a href="certificate-service.html#content-complete-example">Complete Example</a></li>
+<li><a href="certificate-service.html#content-customizing-the-service">Customizing the Service</a>
+<ul>
+<li><a href="certificate-service.html#content-custom-validator">Custom Validator</a></li>
+</ul>
+</li>
+<li><a href="certificate-service.html#content-service-components">Service Components</a>
+<ul>
+<li><a href="certificate-service.html#content-certificateloader">CertificateLoader</a></li>
+<li><a href="certificate-service.html#content-certificatefaker">CertificateFaker</a></li>
+<li><a href="certificate-service.html#content-certificatevalidator">CertificateValidator</a></li>
+</ul>
+</li>
+</ul>
+<h2><a id="content-overview" href="certificate-service.html#content-overview" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Overview</h2>
+<p>The <code>CertificateService</code> follows the service pattern, acting as a facade for:</p>
+<ul>
+<li><code>CertificateFaker</code>: For creating test certificates.</li>
+<li><code>CertificateLoader</code>: For loading certificates from various sources.</li>
+<li><code>CertificateValidator</code>: For validating certificates.</li>
+</ul>
+<p>By using the service, you can access all the library’s functionality through a single interface.</p>
+<h2><a id="content-basic-usage" href="certificate-service.html#content-basic-usage" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Basic Usage</h2>
+<h3><a id="content-setting-up-the-service" href="certificate-service.html#content-setting-up-the-service" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Setting Up the Service</h3>
+<pre><code class="line-numbers match-braces language-php">use Derafu\Certificate\Service\CertificateLoader;
+use Derafu\Certificate\Service\CertificateFaker;
+use Derafu\Certificate\Service\CertificateValidator;
+use Derafu\Certificate\Service\CertificateService;
+
+// Create dependencies.
+$loader = new CertificateLoader();
+$faker = new CertificateFaker($loader);
+$validator = new CertificateValidator();
+
+// Create the service.
+$service = new CertificateService($faker, $loader, $validator);
+</code></pre>
+<h3><a id="content-loading-certificates" href="certificate-service.html#content-loading-certificates" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Loading Certificates</h3>
+<p>The service provides methods to load certificates from various sources:</p>
+<pre><code class="line-numbers match-braces language-php">// Load from a PKCS#12 file.
+$certificate = $service-&gt;loadFromFile('/path/to/certificate.p12', 'password');
+
+// Load from PKCS#12 data.
+$certificate = $service-&gt;loadFromData($pkcs12Data, 'password');
+
+// Load from a certificate array.
+$certificate = $service-&gt;loadFromArray([
+    'cert' =&gt; $publicKey,
+    'pkey' =&gt; $privateKey
+]);
+
+// Load directly from key strings.
+$certificate = $service-&gt;loadFromKeys($publicKey, $privateKey);
+</code></pre>
+<h3><a id="content-validating-certificates" href="certificate-service.html#content-validating-certificates" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Validating Certificates</h3>
+<pre><code class="line-numbers match-braces language-php">use Derafu\Certificate\Exception\CertificateException;
+
+try {
+    $service-&gt;validate($certificate);
+    echo &quot;Certificate is valid!&quot;;
+} catch (CertificateException $e) {
+    echo &quot;Validation failed: &quot; . $e-&gt;getMessage();
+}
+</code></pre>
+<h3><a id="content-creating-test-certificates" href="certificate-service.html#content-creating-test-certificates" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Creating Test Certificates</h3>
+<pre><code class="line-numbers match-braces language-php">// Create with default values.
+$certificate = $service-&gt;createFake();
+
+// Create with custom values.
+$certificate = $service-&gt;createFake(
+    id: '12345678-9',
+    name: 'John Doe',
+    email: 'john.doe@example.com'
+);
+
+// Use the certificate.
+$id = $certificate-&gt;getId();
+$name = $certificate-&gt;getName();
+$isValid = $certificate-&gt;isActive();
+</code></pre>
+<h2><a id="content-complete-example" href="certificate-service.html#content-complete-example" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Complete Example</h2>
+<pre><code class="line-numbers match-braces language-php">// Initialize the service.
+$loader = new CertificateLoader();
+$faker = new CertificateFaker($loader);
+$validator = new CertificateValidator();
+$service = new CertificateService($faker, $loader, $validator);
+
+// Create a test certificate.
+$certificate = $service-&gt;createFake(
+    id: '12345678-9',
+    name: 'John Doe',
+    email: 'john.doe@example.com'
+);
+
+// Extract certificate data.
+echo &quot;Certificate ID: &quot; . $certificate-&gt;getId() . &quot;\n&quot;;
+echo &quot;Certificate Name: &quot; . $certificate-&gt;getName() . &quot;\n&quot;;
+echo &quot;Valid until: &quot; . $certificate-&gt;getTo() . &quot;\n&quot;;
+echo &quot;Days remaining: &quot; . $certificate-&gt;getExpirationDays() . &quot;\n&quot;;
+
+// Validate the certificate.
+try {
+    $service-&gt;validate($certificate);
+    echo &quot;Certificate is valid\n&quot;;
+} catch (CertificateException $e) {
+    echo &quot;Invalid certificate: &quot; . $e-&gt;getMessage() . &quot;\n&quot;;
+}
+
+// Export the certificate.
+$pkcs12Data = $certificate-&gt;getPkcs12('password');
+file_put_contents('certificate.p12', $pkcs12Data);
+
+// Later, load the certificate back.
+$loadedCertificate = $service-&gt;loadFromFile('certificate.p12', 'password');
+</code></pre>
+<h2><a id="content-customizing-the-service" href="certificate-service.html#content-customizing-the-service" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Customizing the Service</h2>
+<h3><a id="content-custom-validator" href="certificate-service.html#content-custom-validator" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Custom Validator</h3>
+<p>You can create a custom validator by implementing the <code>CertificateValidatorInterface</code>:</p>
+<pre><code class="line-numbers match-braces language-php">use Derafu\Certificate\Contract\CertificateInterface;
+use Derafu\Certificate\Contract\CertificateValidatorInterface;
+use Derafu\Certificate\Exception\CertificateException;
+
+class MyCustomValidator implements CertificateValidatorInterface
+{
+    public function validate(CertificateInterface $certificate): void
+    {
+        // Implement your validation logic.
+        if (!$certificate-&gt;isActive()) {
+            throw new CertificateException(
+                'Certificate is expired.'
+            );
+        }
+
+        // Add specific validation for your use case.
+        if ($certificate-&gt;getExpirationDays() &lt; 30) {
+            throw new CertificateException(
+                'Certificate will expire in less than 30 days.'
+            );
+        }
+    }
+}
+
+// Use your custom validator.
+$customValidator = new MyCustomValidator();
+$service = new CertificateService($faker, $loader, $customValidator);
+</code></pre>
+<h2><a id="content-service-components" href="certificate-service.html#content-service-components" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Service Components</h2>
+<h3><a id="content-certificateloader" href="certificate-service.html#content-certificateloader" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>CertificateLoader</h3>
+<p>The <code>CertificateLoader</code> component handles loading certificates from various sources:</p>
+<ul>
+<li>PKCS#12 files.</li>
+<li>PKCS#12 binary data.</li>
+<li>Array of keys.</li>
+<li>Individual public and private keys.</li>
+</ul>
+<h3><a id="content-certificatefaker" href="certificate-service.html#content-certificatefaker" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>CertificateFaker</h3>
+<p>The <code>CertificateFaker</code> component provides a way to create self-signed certificates for testing purposes:</p>
+<ul>
+<li>Create certificates with custom subject information.</li>
+<li>Create certificates with custom issuer information.</li>
+<li>Create certificates with custom validity periods.</li>
+</ul>
+<p>Under the hood, it uses the <code>SelfSignedCertificate</code> class.</p>
+<h3><a id="content-certificatevalidator" href="certificate-service.html#content-certificatevalidator" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>CertificateValidator</h3>
+<p>The <code>CertificateValidator</code> component validates certificates according to specific requirements:</p>
+<ul>
+<li>Checks if the certificate ID (RUN) is properly formatted.</li>
+<li>Ensures that “K” in the ID is uppercase.</li>
+<li>Verifies that the certificate is not expired.</li>
+</ul>
+<p>The default validator is designed for Chilean certificates used with the SII (Servicio de Impuestos Internos), but you can implement your own validator for different requirements.</p>
+</div>
+</div>
+                </main>
+                <div class="col-md-2 py-4">
+                    <div class="list-group mb-4">
+                        <li class="list-group-item d-flex justify-content-between align-items-start">
+                            <div class="ms-2 me-auto">
+                              <div class="fw-bold">Package Info</div>
+                              <span class="smal text-muted">derafu/certificate</span>
+                            </div>
+                        </li>
+                        <a href="index.html" class="list-group-item list-group-item-action ">
+                            README
+                        </a>
+                    </div>
+                    <div class="list-group mb-4">
+                        <li class="list-group-item d-flex justify-content-between align-items-start">
+                            <div class="ms-2 me-auto">
+                            <div class="fw-bold">Docs</div>
+                            <span class="smal text-muted">Guides & Examples</span>
+                            </div>
+                        </li>
+                        <a href="certificate-class.html" class="list-group-item list-group-item-action ">
+                            Certificate Class
+                        </a>
+                        <a href="self-signed-certificate.html" class="list-group-item list-group-item-action ">
+                            Self Signed Certificate
+                        </a>
+                        <a href="asymmetric-key-helper.html" class="list-group-item list-group-item-action ">
+                            Asymmetric Key Helper
+                        </a>
+                        <a href="certificate-service.html" class="list-group-item list-group-item-action active">
+                            Certificate Service
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+            <div id="footer-container"></div>
+<script src="https://derafu.org/foundation/js/derafu.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/show-language/prism-show-language.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/command-line/prism-command-line.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/match-braces/prism-match-braces.min.js"></script>
+    </body>
+</html>

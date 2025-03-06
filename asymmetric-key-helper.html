@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Derafu: Project - Slogan</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.0/css/all.min.css" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.1.0/github-markdown-light.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/command-line/prism-command-line.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/match-braces/prism-match-braces.min.css" rel="stylesheet" />
+    <link href="https://derafu.org/foundation/css/styles.min.css" rel="stylesheet" />
+    </head>
+<body class="derafu-theme-earthstone">
+                <div id="header-container" class="sticky-top"></div>
+    
+            <div class="container">
+            <div class="row">
+                <main class="col-md-9">
+                    <div class="container py-4">
+    <div class="markdown-body"><h1><a id="content-asymmetrickeyhelper-documentation" href="asymmetric-key-helper.html#content-asymmetrickeyhelper-documentation" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>AsymmetricKeyHelper Documentation</h1>
+<p>The <code>AsymmetricKeyHelper</code> class provides utilities for working with RSA certificates and keys. It offers methods to normalize public and private keys and to generate public keys from modulus and exponent values.</p>
+<ul class="table-of-contents">
+<li><a href="asymmetric-key-helper.html#content-overview">Overview</a></li>
+<li><a href="asymmetric-key-helper.html#content-key-normalization">Key Normalization</a>
+<ul>
+<li><a href="asymmetric-key-helper.html#content-normalizing-a-public-key">Normalizing a Public Key</a></li>
+<li><a href="asymmetric-key-helper.html#content-normalizing-a-private-key">Normalizing a Private Key</a></li>
+<li><a href="asymmetric-key-helper.html#content-custom-line-length">Custom Line Length</a></li>
+</ul>
+</li>
+<li><a href="asymmetric-key-helper.html#content-key-generation">Key Generation</a>
+<ul>
+<li><a href="asymmetric-key-helper.html#content-generating-a-public-key-from-modulus-and-exponent">Generating a Public Key from Modulus and Exponent</a></li>
+</ul>
+</li>
+<li><a href="asymmetric-key-helper.html#content-common-use-cases">Common Use Cases</a>
+<ul>
+<li><a href="asymmetric-key-helper.html#content-preparing-keys-for-use-with-openssl-functions">Preparing Keys for Use with OpenSSL Functions</a></li>
+<li><a href="asymmetric-key-helper.html#content-reconstructing-public-keys">Reconstructing Public Keys</a></li>
+</ul>
+</li>
+<li><a href="asymmetric-key-helper.html#content-implementation-details">Implementation Details</a>
+<ul>
+<li><a href="asymmetric-key-helper.html#content-public-key-normalization">Public Key Normalization</a></li>
+<li><a href="asymmetric-key-helper.html#content-private-key-normalization">Private Key Normalization</a></li>
+<li><a href="asymmetric-key-helper.html#content-public-key-generation">Public Key Generation</a></li>
+</ul>
+</li>
+</ul>
+<h2><a id="content-overview" href="asymmetric-key-helper.html#content-overview" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Overview</h2>
+<p>When working with digital certificates and electronic signatures, you often need to handle RSA key components in different formats. The <code>AsymmetricKeyHelper</code> class solves common problems related to key formatting and generation:</p>
+<ol>
+<li>Adding standard PEM headers and footers to raw key data.</li>
+<li>Converting between key components (modulus, exponent) and full key format.</li>
+</ol>
+<h2><a id="content-key-normalization" href="asymmetric-key-helper.html#content-key-normalization" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Key Normalization</h2>
+<h3><a id="content-normalizing-a-public-key" href="asymmetric-key-helper.html#content-normalizing-a-public-key" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Normalizing a Public Key</h3>
+<pre><code class="line-numbers match-braces language-php">use Derafu\Certificate\AsymmetricKeyHelper;
+
+// Raw public key without headers.
+$rawPublicKey = &quot;MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvTLIKu... (more base64 data)&quot;;
+
+// Normalize the public key (add headers and footers).
+$normalizedPublicKey = AsymmetricKeyHelper::normalizePublicKey($rawPublicKey);
+
+// Result:
+// -----BEGIN CERTIFICATE-----
+// MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvTLIKu...
+// (more base64 data, wrapped, by default, at 64 characters per line)
+// -----END CERTIFICATE-----
+</code></pre>
+<h3><a id="content-normalizing-a-private-key" href="asymmetric-key-helper.html#content-normalizing-a-private-key" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Normalizing a Private Key</h3>
+<pre><code class="line-numbers match-braces language-php">// Raw private key without headers.
+$rawPrivateKey = &quot;MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkA... (more base64 data)&quot;;
+
+// Normalize the private key (add headers and footers).
+$normalizedPrivateKey = AsymmetricKeyHelper::normalizePrivateKey($rawPrivateKey);
+
+// Result:
+// -----BEGIN PRIVATE KEY-----
+// MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkA...
+// (more base64 data, wrapped, by default, at 64 characters per line)
+// -----END PRIVATE KEY-----
+</code></pre>
+<h3><a id="content-custom-line-length" href="asymmetric-key-helper.html#content-custom-line-length" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Custom Line Length</h3>
+<p>Both normalization methods support a custom line length for wrapping the key data:</p>
+<pre><code class="line-numbers match-braces language-php">// Wrap lines at 75 characters instead of the default 64.
+$normalizedPublicKey = AsymmetricKeyHelper::normalizePublicKey($rawPublicKey, 75);
+$normalizedPrivateKey = AsymmetricKeyHelper::normalizePrivateKey($rawPrivateKey, 75);
+</code></pre>
+<h2><a id="content-key-generation" href="asymmetric-key-helper.html#content-key-generation" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Key Generation</h2>
+<h3><a id="content-generating-a-public-key-from-modulus-and-exponent" href="asymmetric-key-helper.html#content-generating-a-public-key-from-modulus-and-exponent" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Generating a Public Key from Modulus and Exponent</h3>
+<p>You can generate a complete public key if you have the modulus and exponent components:</p>
+<pre><code class="line-numbers match-braces language-php">// Base64-encoded modulus and exponent.
+$modulus = &quot;wKhpaf5AYomI+0/tLxJtvjHVCveRYYZ9j0yDlL...&quot;;
+$exponent = &quot;AQAB&quot;;
+
+// Generate public key.
+$publicKey = AsymmetricKeyHelper::generatePublicKeyFromModulusExponent(
+    $modulus,
+    $exponent
+);
+
+// Result is a complete public key in PKCS1 format:
+// -----BEGIN RSA PUBLIC KEY-----
+// MIIBCgKCAQEAwKhpaf5AYomI+0/tLxJtvjHVCveRYYZ9j0yDlL...
+// -----END RSA PUBLIC KEY-----
+</code></pre>
+<p>This method requires the <code>phpseclib3/phpseclib</code> library. If the library is not installed, it will throw a <code>LogicException</code> with instructions to install it.</p>
+<h2><a id="content-common-use-cases" href="asymmetric-key-helper.html#content-common-use-cases" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Common Use Cases</h2>
+<h3><a id="content-preparing-keys-for-use-with-openssl-functions" href="asymmetric-key-helper.html#content-preparing-keys-for-use-with-openssl-functions" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Preparing Keys for Use with OpenSSL Functions</h3>
+<p>Many OpenSSL functions require properly formatted keys with headers and footers:</p>
+<pre><code class="line-numbers match-braces language-php">// Normalize keys before using with OpenSSL.
+$normalizedPublicKey = AsymmetricKeyHelper::normalizePublicKey($rawPublicKey);
+$normalizedPrivateKey = AsymmetricKeyHelper::normalizePrivateKey($rawPrivateKey);
+
+// Now use with OpenSSL functions.
+$signature = openssl_sign($data, $signature, $normalizedPrivateKey, OPENSSL_ALGO_SHA256);
+$result = openssl_verify($data, $signature, $normalizedPublicKey, OPENSSL_ALGO_SHA256);
+</code></pre>
+<h3><a id="content-reconstructing-public-keys" href="asymmetric-key-helper.html#content-reconstructing-public-keys" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Reconstructing Public Keys</h3>
+<p>In some systems, especially with hardware security modules (HSMs) or smart cards, you might only have access to the modulus and exponent components:</p>
+<pre><code class="line-numbers match-braces language-php">// Reconstruct the public key from components.
+$publicKey = AsymmetricKeyHelper::generatePublicKeyFromModulusExponent(
+    $modulus,
+    $exponent
+);
+
+// Use for verification.
+$result = openssl_verify($data, $signature, $publicKey, OPENSSL_ALGO_SHA256);
+</code></pre>
+<h2><a id="content-implementation-details" href="asymmetric-key-helper.html#content-implementation-details" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Implementation Details</h2>
+<h3><a id="content-public-key-normalization" href="asymmetric-key-helper.html#content-public-key-normalization" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Public Key Normalization</h3>
+<p>The <code>normalizePublicKey()</code> method:</p>
+<ol>
+<li>Checks if the key already contains the “BEGIN CERTIFICATE” header.</li>
+<li>If not, adds the appropriate BEGIN/END headers.</li>
+<li>Wraps the content to the specified line length.</li>
+<li>Returns the normalized key.</li>
+</ol>
+<h3><a id="content-private-key-normalization" href="asymmetric-key-helper.html#content-private-key-normalization" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Private Key Normalization</h3>
+<p>The <code>normalizePrivateKey()</code> method:</p>
+<ol>
+<li>Checks if the key already contains the “BEGIN PRIVATE KEY” header.</li>
+<li>If not, adds the appropriate BEGIN/END headers.</li>
+<li>Wraps the content to the specified line length.</li>
+<li>Returns the normalized key.</li>
+</ol>
+<h3><a id="content-public-key-generation" href="asymmetric-key-helper.html#content-public-key-generation" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Public Key Generation</h3>
+<p>The <code>generatePublicKeyFromModulusExponent()</code> method:</p>
+<ol>
+<li>Decodes the base64-encoded modulus and exponent.</li>
+<li>Creates BigInteger instances from the binary data.</li>
+<li>Loads these values into a RSA key object using phpseclib.</li>
+<li>Exports the key in PKCS1 format.</li>
+<li>Returns the complete public key string.</li>
+</ol>
+</div>
+</div>
+                </main>
+                <div class="col-md-2 py-4">
+                    <div class="list-group mb-4">
+                        <li class="list-group-item d-flex justify-content-between align-items-start">
+                            <div class="ms-2 me-auto">
+                              <div class="fw-bold">Package Info</div>
+                              <span class="smal text-muted">derafu/certificate</span>
+                            </div>
+                        </li>
+                        <a href="index.html" class="list-group-item list-group-item-action ">
+                            README
+                        </a>
+                    </div>
+                    <div class="list-group mb-4">
+                        <li class="list-group-item d-flex justify-content-between align-items-start">
+                            <div class="ms-2 me-auto">
+                            <div class="fw-bold">Docs</div>
+                            <span class="smal text-muted">Guides & Examples</span>
+                            </div>
+                        </li>
+                        <a href="certificate-class.html" class="list-group-item list-group-item-action ">
+                            Certificate Class
+                        </a>
+                        <a href="self-signed-certificate.html" class="list-group-item list-group-item-action ">
+                            Self Signed Certificate
+                        </a>
+                        <a href="asymmetric-key-helper.html" class="list-group-item list-group-item-action active">
+                            Asymmetric Key Helper
+                        </a>
+                        <a href="certificate-service.html" class="list-group-item list-group-item-action ">
+                            Certificate Service
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+            <div id="footer-container"></div>
+<script src="https://derafu.org/foundation/js/derafu.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/show-language/prism-show-language.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/command-line/prism-command-line.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/match-braces/prism-match-braces.min.js"></script>
+    </body>
+</html>

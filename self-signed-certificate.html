@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Derafu: Project - Slogan</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.0/css/all.min.css" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.1.0/github-markdown-light.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/command-line/prism-command-line.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/match-braces/prism-match-braces.min.css" rel="stylesheet" />
+    <link href="https://derafu.org/foundation/css/styles.min.css" rel="stylesheet" />
+    </head>
+<body class="derafu-theme-earthstone">
+                <div id="header-container" class="sticky-top"></div>
+    
+            <div class="container">
+            <div class="row">
+                <main class="col-md-9">
+                    <div class="container py-4">
+    <div class="markdown-body"><h1><a id="content-selfsignedcertificate-documentation" href="self-signed-certificate.html#content-selfsignedcertificate-documentation" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>SelfSignedCertificate Documentation</h1>
+<p>The <code>SelfSignedCertificate</code> class provides functionality to generate self-signed certificates for testing and development purposes. It allows customization of certificate properties such as subject, issuer, validity period, and password protection.</p>
+<ul class="table-of-contents">
+<li><a href="self-signed-certificate.html#content-overview">Overview</a></li>
+<li><a href="self-signed-certificate.html#content-basic-usage">Basic Usage</a></li>
+<li><a href="self-signed-certificate.html#content-configuration-methods">Configuration Methods</a>
+<ul>
+<li><a href="self-signed-certificate.html#content-setting-the-subject">Setting the Subject</a></li>
+<li><a href="self-signed-certificate.html#content-setting-the-issuer">Setting the Issuer</a></li>
+<li><a href="self-signed-certificate.html#content-setting-the-validity-period">Setting the Validity Period</a></li>
+<li><a href="self-signed-certificate.html#content-setting-the-password">Setting the Password</a></li>
+</ul>
+</li>
+<li><a href="self-signed-certificate.html#content-generating-the-certificate">Generating the Certificate</a>
+<ul>
+<li><a href="self-signed-certificate.html#content-getting-the-certificate-array">Getting the Certificate Array</a></li>
+<li><a href="self-signed-certificate.html#content-getting-the-raw-pkcs12-data">Getting the Raw PKCS#12 Data</a></li>
+</ul>
+</li>
+<li><a href="self-signed-certificate.html#content-certificate-structure">Certificate Structure</a></li>
+<li><a href="self-signed-certificate.html#content-default-values">Default Values</a>
+<ul>
+<li><a href="self-signed-certificate.html#content-default-subject">Default Subject</a></li>
+<li><a href="self-signed-certificate.html#content-default-issuer">Default Issuer</a></li>
+<li><a href="self-signed-certificate.html#content-other-defaults">Other Defaults</a></li>
+</ul>
+</li>
+<li><a href="self-signed-certificate.html#content-implementation-details">Implementation Details</a></li>
+</ul>
+<h2><a id="content-overview" href="self-signed-certificate.html#content-overview" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Overview</h2>
+<p>This class creates a digital certificate that includes:</p>
+<ol>
+<li>A Certificate Authority (CA) certificate.</li>
+<li>A user certificate signed by the CA.</li>
+<li>Both packaged together in PKCS#12 format.</li>
+</ol>
+<p>The generated certificate is suitable for testing electronic signature functionality without requiring a certificate from a commercial Certificate Authority.</p>
+<h2><a id="content-basic-usage" href="self-signed-certificate.html#content-basic-usage" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Basic Usage</h2>
+<pre><code class="line-numbers match-braces language-php">use Derafu\Certificate\SelfSignedCertificate;
+use Derafu\Certificate\Service\CertificateLoader;
+
+// Create with default settings.
+$selfSigned = new SelfSignedCertificate();
+$certificateArray = $selfSigned-&gt;toArray();
+
+// Load as a Certificate object.
+$loader = new CertificateLoader();
+$certificate = $loader-&gt;loadFromArray($certificateArray);
+</code></pre>
+<h2><a id="content-configuration-methods" href="self-signed-certificate.html#content-configuration-methods" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Configuration Methods</h2>
+<h3><a id="content-setting-the-subject" href="self-signed-certificate.html#content-setting-the-subject" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Setting the Subject</h3>
+<p>The subject represents the owner of the certificate:</p>
+<pre><code class="line-numbers match-braces language-php">$selfSigned-&gt;setSubject(
+    C: 'US',                              // Country code (2 letters).
+    ST: 'California',                     // State/Province.
+    L: 'San Francisco',                   // Locality/City.
+    O: 'Example Corporation',             // Organization.
+    OU: 'IT Department',                  // Organizational Unit.
+    CN: 'John Doe',                       // Common Name (full name).
+    emailAddress: 'john.doe@example.com', // Email address.
+    serialNumber: '12345678-9',           // ID/Serial number (tax ID, etc.).
+    title: 'System Administrator'         // Title.
+);
+</code></pre>
+<p>Only <code>CN</code>, <code>emailAddress</code>, and <code>serialNumber</code> are strictly required. The method will throw a <code>CertificateException</code> if any of these are empty.</p>
+<h3><a id="content-setting-the-issuer" href="self-signed-certificate.html#content-setting-the-issuer" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Setting the Issuer</h3>
+<p>The issuer represents the Certificate Authority that issues the certificate:</p>
+<pre><code class="line-numbers match-braces language-php">$selfSigned-&gt;setIssuer(
+    C: 'US',                           // Country code
+    ST: 'Washington',                  // State/Province
+    L: 'Seattle',                      // Locality/City
+    O: 'Example CA',                   // Organization
+    OU: 'Certificate Authority',       // Organizational Unit
+    CN: 'Example Root CA',             // CA Name
+    emailAddress: 'ca@example.com',    // CA Email
+    serialNumber: '87654321-0'         // CA ID
+);
+</code></pre>
+<h3><a id="content-setting-the-validity-period" href="self-signed-certificate.html#content-setting-the-validity-period" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Setting the Validity Period</h3>
+<pre><code class="line-numbers match-braces language-php">// Set validity to 730 days (2 years).
+$selfSigned-&gt;setValidity(730);
+</code></pre>
+<p>The default validity period is 365 days (1 year).</p>
+<h3><a id="content-setting-the-password" href="self-signed-certificate.html#content-setting-the-password" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Setting the Password</h3>
+<pre><code class="line-numbers match-braces language-php">// Set password for the private key.
+$selfSigned-&gt;setPassword('secure_password');
+</code></pre>
+<p>The default password is <code>'i_love_derafu'</code>.</p>
+<h2><a id="content-generating-the-certificate" href="self-signed-certificate.html#content-generating-the-certificate" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Generating the Certificate</h2>
+<h3><a id="content-getting-the-certificate-array" href="self-signed-certificate.html#content-getting-the-certificate-array" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Getting the Certificate Array</h3>
+<pre><code class="line-numbers match-braces language-php">// Get the certificate as an array with 'cert' and 'pkey' elements.
+$certificateArray = $selfSigned-&gt;toArray();
+
+// The array contains:
+// [
+//     'cert' =&gt; '...public key certificate...',
+//     'pkey' =&gt; '...private key...'
+// ]
+</code></pre>
+<h3><a id="content-getting-the-raw-pkcs12-data" href="self-signed-certificate.html#content-getting-the-raw-pkcs12-data" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Getting the Raw PKCS#12 Data</h3>
+<pre><code class="line-numbers match-braces language-php">// Get the toPkcs12() method result (PKCS#12 binary data).
+$pkcs12Data = $selfSigned-&gt;toPkcs12();
+
+// Save to a file.
+file_put_contents('certificate.p12', $pkcs12Data);
+</code></pre>
+<h2><a id="content-certificate-structure" href="self-signed-certificate.html#content-certificate-structure" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Certificate Structure</h2>
+<p>The generated certificate consists of:</p>
+<ol>
+<li>An issuer (CA) certificate that is self-signed.</li>
+<li>A subject certificate that is signed by the issuer.</li>
+<li>Both certificates’ private keys.</li>
+</ol>
+<p>The PKCS#12 container includes both certificates and is password-protected using the specified password.</p>
+<h2><a id="content-default-values" href="self-signed-certificate.html#content-default-values" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Default Values</h2>
+<p>If you create a <code>SelfSignedCertificate</code> without any customization, it will use the following default values:</p>
+<h3><a id="content-default-subject" href="self-signed-certificate.html#content-default-subject" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Default Subject</h3>
+<ul>
+<li>Country: <code>CL</code> (Chile).</li>
+<li>State: <code>Colchagua</code>.</li>
+<li>Locality: <code>Santa Cruz</code>.</li>
+<li>Organization: <code>Intergalactic Robots Organization</code>.</li>
+<li>Organizational Unit: <code>Technology</code>.</li>
+<li>Common Name: <code>Daniel Bot</code>.</li>
+<li>Email: <code>daniel.bot@example.com</code>.</li>
+<li>Serial Number: <code>11222333-9</code>.</li>
+<li>Title: <code>Bot</code>.</li>
+</ul>
+<h3><a id="content-default-issuer" href="self-signed-certificate.html#content-default-issuer" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Default Issuer</h3>
+<ul>
+<li>Country: <code>CL</code> (Chile).</li>
+<li>State: <code>Colchagua</code>.</li>
+<li>Locality: <code>Santa Cruz</code>.</li>
+<li>Organization: <code>Derafu</code>.</li>
+<li>Organizational Unit: <code>Technology</code>.</li>
+<li>Common Name: <code>Derafu Test Certificate Authority</code>.</li>
+<li>Email: <code>fakes-certificates@derafu.org</code>.</li>
+<li>Serial Number: <code>76192083-9</code>.</li>
+</ul>
+<h3><a id="content-other-defaults" href="self-signed-certificate.html#content-other-defaults" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Other Defaults</h3>
+<ul>
+<li>Validity: 365 days.</li>
+<li>Password: <code>i_love_derafu</code>.</li>
+</ul>
+<h2><a id="content-implementation-details" href="self-signed-certificate.html#content-implementation-details" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Implementation Details</h2>
+<p>The <code>SelfSignedCertificate</code> class uses the PHP OpenSSL extension to:</p>
+<ol>
+<li>Generate a key pair for the issuer.</li>
+<li>Create a Certificate Signing Request (CSR) for the issuer.</li>
+<li>Self-sign the issuer’s CSR to create the issuer certificate.</li>
+<li>Generate a key pair for the subject.</li>
+<li>Create a CSR for the subject.</li>
+<li>Sign the subject’s CSR with the issuer’s certificate.</li>
+<li>Package everything into a PKCS#12 container.</li>
+</ol>
+<p>The process mimics a real CA-issued certificate but is entirely self-contained and suitable for testing purposes.</p>
+</div>
+</div>
+                </main>
+                <div class="col-md-2 py-4">
+                    <div class="list-group mb-4">
+                        <li class="list-group-item d-flex justify-content-between align-items-start">
+                            <div class="ms-2 me-auto">
+                              <div class="fw-bold">Package Info</div>
+                              <span class="smal text-muted">derafu/certificate</span>
+                            </div>
+                        </li>
+                        <a href="index.html" class="list-group-item list-group-item-action ">
+                            README
+                        </a>
+                    </div>
+                    <div class="list-group mb-4">
+                        <li class="list-group-item d-flex justify-content-between align-items-start">
+                            <div class="ms-2 me-auto">
+                            <div class="fw-bold">Docs</div>
+                            <span class="smal text-muted">Guides & Examples</span>
+                            </div>
+                        </li>
+                        <a href="certificate-class.html" class="list-group-item list-group-item-action ">
+                            Certificate Class
+                        </a>
+                        <a href="self-signed-certificate.html" class="list-group-item list-group-item-action active">
+                            Self Signed Certificate
+                        </a>
+                        <a href="asymmetric-key-helper.html" class="list-group-item list-group-item-action ">
+                            Asymmetric Key Helper
+                        </a>
+                        <a href="certificate-service.html" class="list-group-item list-group-item-action ">
+                            Certificate Service
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+            <div id="footer-container"></div>
+<script src="https://derafu.org/foundation/js/derafu.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/show-language/prism-show-language.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/command-line/prism-command-line.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/match-braces/prism-match-braces.min.js"></script>
+    </body>
+</html>

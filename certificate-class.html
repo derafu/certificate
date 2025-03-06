@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Derafu: Project - Slogan</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.0/css/all.min.css" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.1.0/github-markdown-light.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/command-line/prism-command-line.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/match-braces/prism-match-braces.min.css" rel="stylesheet" />
+    <link href="https://derafu.org/foundation/css/styles.min.css" rel="stylesheet" />
+    </head>
+<body class="derafu-theme-earthstone">
+                <div id="header-container" class="sticky-top"></div>
+    
+            <div class="container">
+            <div class="row">
+                <main class="col-md-9">
+                    <div class="container py-4">
+    <div class="markdown-body"><h1><a id="content-certificate-class-documentation" href="certificate-class.html#content-certificate-class-documentation" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Certificate Class Documentation</h1>
+<p>The <code>Certificate</code> class is the core component of the Derafu Certificate library, representing a digital certificate with its public and private keys and providing methods to access certificate details and properties.</p>
+<ul class="table-of-contents">
+<li><a href="certificate-class.html#content-overview">Overview</a></li>
+<li><a href="certificate-class.html#content-usage">Usage</a>
+<ul>
+<li><a href="certificate-class.html#content-creating-a-certificate">Creating a Certificate</a></li>
+<li><a href="certificate-class.html#content-getting-keys">Getting Keys</a></li>
+<li><a href="certificate-class.html#content-certificate-metadata">Certificate Metadata</a></li>
+<li><a href="certificate-class.html#content-certificate-validity">Certificate Validity</a></li>
+<li><a href="certificate-class.html#content-cryptographic-components">Cryptographic Components</a></li>
+<li><a href="certificate-class.html#content-exporting-a-certificate">Exporting a Certificate</a></li>
+</ul>
+</li>
+<li><a href="certificate-class.html#content-error-handling">Error Handling</a></li>
+<li><a href="certificate-class.html#content-implementation-details">Implementation Details</a>
+<ul>
+<li><a href="certificate-class.html#content-id-extraction">ID Extraction</a></li>
+<li><a href="certificate-class.html#content-certificate-validation">Certificate Validation</a></li>
+<li><a href="certificate-class.html#content-cryptographic-components-1">Cryptographic Components</a></li>
+</ul>
+</li>
+</ul>
+<h2><a id="content-overview" href="certificate-class.html#content-overview" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Overview</h2>
+<p>The <code>Certificate</code> class implements the <code>CertificateInterface</code> and provides functionality to:</p>
+<ul>
+<li>Access public and private keys.</li>
+<li>Extract certificate metadata (ID, name, email, issuer, etc.).</li>
+<li>Check certificate validity.</li>
+<li>Get certificate validity dates.</li>
+<li>Retrieve cryptographic components (modulus, exponent).</li>
+<li>Generate PKCS#12 data.</li>
+</ul>
+<h2><a id="content-usage" href="certificate-class.html#content-usage" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Usage</h2>
+<h3><a id="content-creating-a-certificate" href="certificate-class.html#content-creating-a-certificate" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Creating a Certificate</h3>
+<p>To create a <code>Certificate</code> instance, you need a public key (certificate) and a private key:</p>
+<pre><code class="line-numbers match-braces language-php">use Derafu\Certificate\Certificate;
+
+$certificate = new Certificate($publicKey, $privateKey);
+</code></pre>
+<p>The constructor automatically normalizes the keys using <code>AsymmetricKeyHelper</code>.</p>
+<h3><a id="content-getting-keys" href="certificate-class.html#content-getting-keys" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Getting Keys</h3>
+<pre><code class="line-numbers match-braces language-php">// Get both keys as an array.
+$keys = $certificate-&gt;getKeys();
+// Result: ['cert' =&gt; '...public key...', 'pkey' =&gt; '...private key...']
+
+// Get both keys without headers/footers.
+$cleanKeys = $certificate-&gt;getKeys(clean: true);
+
+// Get just the public key.
+$publicKey = $certificate-&gt;getPublicKey();
+// Alternatively.
+$publicKey = $certificate-&gt;getCertificate();
+
+// Get just the private key.
+$privateKey = $certificate-&gt;getPrivateKey();
+
+// Get clean keys (without headers/footers).
+$cleanPublicKey = $certificate-&gt;getPublicKey(clean: true);
+$cleanPrivateKey = $certificate-&gt;getPrivateKey(clean: true);
+</code></pre>
+<h3><a id="content-certificate-metadata" href="certificate-class.html#content-certificate-metadata" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Certificate Metadata</h3>
+<pre><code class="line-numbers match-braces language-php">// Get certificate ID (usually a document/tax number).
+$id = $certificate-&gt;getId(); // e.g., &quot;12345678-9&quot;
+$id = $certificate-&gt;getId(forceUpper:false); // with original case, e.g., &quot;12345678-k&quot;
+
+// Get certificate owner's name.
+$name = $certificate-&gt;getName();
+
+// Get certificate owner's email.
+$email = $certificate-&gt;getEmail();
+
+// Get certificate issuer.
+$issuer = $certificate-&gt;getIssuer();
+</code></pre>
+<h3><a id="content-certificate-validity" href="certificate-class.html#content-certificate-validity" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Certificate Validity</h3>
+<pre><code class="line-numbers match-braces language-php">// Check if certificate is valid (not expired).
+$isActive = $certificate-&gt;isActive();
+
+// Check if certificate is valid at a specific date.
+$isActiveOn = $certificate-&gt;isActive('2025-06-01');
+
+// Get certificate validity period.
+$validFrom = $certificate-&gt;getFrom(); // e.g., &quot;2025-01-01T00:00:00&quot;
+$validTo = $certificate-&gt;getTo(); // e.g., &quot;2026-01-01T00:00:00&quot;
+
+// Get total validity period in days.
+$totalDays = $certificate-&gt;getTotalDays();
+
+// Get days remaining until expiration.
+$daysRemaining = $certificate-&gt;getExpirationDays();
+
+// Get days remaining from a specific date.
+$daysRemainingFrom = $certificate-&gt;getExpirationDays('2025-06-01');
+</code></pre>
+<h3><a id="content-cryptographic-components" href="certificate-class.html#content-cryptographic-components" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Cryptographic Components</h3>
+<pre><code class="line-numbers match-braces language-php">// Get certificate raw data.
+$data = $certificate-&gt;getData();
+
+// Get private key details.
+$privateKeyDetails = $certificate-&gt;getPrivateKeyDetails();
+
+// Get modulus and exponent.
+$modulus = $certificate-&gt;getModulus();
+$exponent = $certificate-&gt;getExponent();
+
+// With custom word wrapping.
+$modulus = $certificate-&gt;getModulus(wordwrap: 75);
+$exponent = $certificate-&gt;getExponent(wordwrap: 75);
+</code></pre>
+<h3><a id="content-exporting-a-certificate" href="certificate-class.html#content-exporting-a-certificate" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Exporting a Certificate</h3>
+<pre><code class="line-numbers match-braces language-php">// Export certificate as PKCS#12 data.
+$pkcs12 = $certificate-&gt;getPkcs12('password');
+
+// Save to a file.
+file_put_contents('certificate.p12', $pkcs12);
+</code></pre>
+<h2><a id="content-error-handling" href="certificate-class.html#content-error-handling" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Error Handling</h2>
+<p>The <code>Certificate</code> class throws <code>CertificateException</code> when it encounters problems such as:</p>
+<ul>
+<li>Unable to extract the certificate ID.</li>
+<li>Unable to find the certificate name.</li>
+<li>Unable to find the certificate email.</li>
+<li>Unable to access the modulus or exponent.</li>
+</ul>
+<p>Example:</p>
+<pre><code class="line-numbers match-braces language-php">use Derafu\Certificate\Exception\CertificateException;
+
+try {
+    $id = $certificate-&gt;getId();
+    $name = $certificate-&gt;getName();
+    $email = $certificate-&gt;getEmail();
+} catch (CertificateException $e) {
+    echo &quot;Certificate error: &quot; . $e-&gt;getMessage();
+}
+</code></pre>
+<h2><a id="content-implementation-details" href="certificate-class.html#content-implementation-details" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Implementation Details</h2>
+<h3><a id="content-id-extraction" href="certificate-class.html#content-id-extraction" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>ID Extraction</h3>
+<p>The <code>getId()</code> method attempts to extract the certificate ID through multiple methods:</p>
+<ol>
+<li>First, it checks the <code>serialNumber</code> field in the subject.</li>
+<li>If not found, it looks for the ID in the Subject Alternative Name (SAN) extension.</li>
+<li>If still not found, it throws a <code>CertificateException</code>.</li>
+</ol>
+<h3><a id="content-certificate-validation" href="certificate-class.html#content-certificate-validation" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Certificate Validation</h3>
+<p>The <code>isActive()</code> method checks if the certificate is valid at the current date (or a specified date) by comparing it against the certificate’s validity period.</p>
+<h3><a id="content-cryptographic-components-1" href="certificate-class.html#content-cryptographic-components-1" class="text-decoration-none small text-muted" aria-hidden="true" title="Permalink"><i class="fa-solid fa-link"></i> </a>Cryptographic Components</h3>
+<p>The <code>getModulus()</code> and <code>getExponent()</code> methods extract these values from the private key details and return them as base64-encoded strings, which can be used for various cryptographic operations.</p>
+</div>
+</div>
+                </main>
+                <div class="col-md-2 py-4">
+                    <div class="list-group mb-4">
+                        <li class="list-group-item d-flex justify-content-between align-items-start">
+                            <div class="ms-2 me-auto">
+                              <div class="fw-bold">Package Info</div>
+                              <span class="smal text-muted">derafu/certificate</span>
+                            </div>
+                        </li>
+                        <a href="index.html" class="list-group-item list-group-item-action ">
+                            README
+                        </a>
+                    </div>
+                    <div class="list-group mb-4">
+                        <li class="list-group-item d-flex justify-content-between align-items-start">
+                            <div class="ms-2 me-auto">
+                            <div class="fw-bold">Docs</div>
+                            <span class="smal text-muted">Guides & Examples</span>
+                            </div>
+                        </li>
+                        <a href="certificate-class.html" class="list-group-item list-group-item-action active">
+                            Certificate Class
+                        </a>
+                        <a href="self-signed-certificate.html" class="list-group-item list-group-item-action ">
+                            Self Signed Certificate
+                        </a>
+                        <a href="asymmetric-key-helper.html" class="list-group-item list-group-item-action ">
+                            Asymmetric Key Helper
+                        </a>
+                        <a href="certificate-service.html" class="list-group-item list-group-item-action ">
+                            Certificate Service
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+            <div id="footer-container"></div>
+<script src="https://derafu.org/foundation/js/derafu.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/show-language/prism-show-language.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/command-line/prism-command-line.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/match-braces/prism-match-braces.min.js"></script>
+    </body>
+</html>
