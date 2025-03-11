@@ -1,7 +1,11 @@
 # Derafu: Certificate - Library for digital certificates
 
-[![CI Workflow](https://github.com/derafu/certificate/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/derafu/certificate/actions/workflows/ci.yml?query=branch%3Amain)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+![GitHub last commit](https://img.shields.io/github/last-commit/derafu/certificate/main)
+![CI Workflow](https://github.com/derafu/certificate/actions/workflows/ci.yml/badge.svg?branch=main&event=push)
+![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/derafu/certificate)
+![GitHub Issues](https://img.shields.io/github/issues-raw/derafu/certificate)
+![Total Downloads](https://poser.pugx.org/derafu/certificate/downloads)
+![Monthly Downloads](https://poser.pugx.org/derafu/certificate/d/monthly)
 
 A comprehensive PHP library for working with digital certificates, providing tools for loading, validating and generating certificates.
 
