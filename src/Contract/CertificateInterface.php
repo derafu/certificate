@@ -12,10 +12,12 @@ declare(strict_types=1);
 
 namespace Derafu\Certificate\Contract;
 
+use JsonSerializable;
+
 /**
  * Interface for the certificate entity.
  */
-interface CertificateInterface
+interface CertificateInterface extends JsonSerializable
 {
     /**
      * Returns the public and private keys.
@@ -162,4 +164,11 @@ interface CertificateInterface
      * @return string Public exponent in base64.
      */
     public function getExponent(int $wordwrap = 64): string;
+
+    /**
+     * Returns the certificate data as an array.
+     *
+     * @return array Array with all the certificate data.
+     */
+    public function toArray(): array;
 }

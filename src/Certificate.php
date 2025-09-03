@@ -318,4 +318,34 @@ final class Certificate implements CertificateInterface
 
         return wordwrap(base64_encode($exponent), $wordwrap, "\n", true);
     }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function toArray(): array
+    {
+        return [
+            'id' => $this->getId(),
+            'name' => $this->getName(),
+            'email' => $this->getEmail(),
+            'from' => $this->getFrom(),
+            'to' => $this->getTo(),
+            'totalDays' => $this->getTotalDays(),
+            'expirationDays' => $this->getExpirationDays(),
+            'isActive' => $this->isActive(),
+            'issuer' => $this->getIssuer(),
+            'modulus' => $this->getModulus(),
+            'exponent' => $this->getExponent(),
+            'certificate' => $this->getCertificate(),
+            'privateKey' => $this->getPrivateKey(),
+        ];
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
+    }
 }
