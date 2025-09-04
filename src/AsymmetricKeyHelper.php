@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 namespace Derafu\Certificate;
 
+use Derafu\Certificate\Exception\CertificateException;
 use LogicException;
 use phpseclib3\Crypt\PublicKeyLoader;
 use phpseclib3\Math\BigInteger;
@@ -34,6 +35,12 @@ class AsymmetricKeyHelper
         string $publicKey,
         int $wordwrap = 64
     ): string {
+        if (empty($publicKey)) {
+            throw new CertificateException(
+                'The public key cannot be empty.'
+            );
+        }
+
         if (!str_contains($publicKey, '-----BEGIN CERTIFICATE-----')) {
             $body = trim($publicKey);
             $publicKey = '-----BEGIN CERTIFICATE-----' . "\n";
@@ -56,6 +63,12 @@ class AsymmetricKeyHelper
         string $privateKey,
         int $wordwrap = 64
     ): string {
+        if (empty($privateKey)) {
+            throw new CertificateException(
+                'The private key cannot be empty.'
+            );
+        }
+
         if (!str_contains($privateKey, '-----BEGIN PRIVATE KEY-----')) {
             $body = trim($privateKey);
             $privateKey = '-----BEGIN PRIVATE KEY-----' . "\n";

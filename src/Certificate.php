@@ -336,7 +336,7 @@ final class Certificate implements CertificateInterface
             'issuer' => $this->getIssuer(),
             'modulus' => $this->getModulus(),
             'exponent' => $this->getExponent(),
-            'certificate' => $this->getCertificate(),
+            'publicKey' => $this->getPublicKey(),
             'privateKey' => $this->getPrivateKey(),
         ];
     }
