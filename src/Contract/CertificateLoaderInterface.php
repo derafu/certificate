@@ -75,4 +75,13 @@ interface CertificateLoaderInterface
         string $publicKey,
         string $privateKey
     ): CertificateInterface;
+
+    /**
+     * Creates a Certificate instance from a public key.
+     *
+     * @param string $publicKey Public key of the certificate.
+     * @return CertificateInterface Instance of the Certificate class that
+     * contains only the public certificate.
+     */
+    public function loadFromPublicKey(string $publicKey): CertificateInterface;
 }

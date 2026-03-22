@@ -90,6 +90,14 @@ final class CertificateService implements CertificateServiceInterface
     /**
      * {@inheritDoc}
      */
+    public function loadFromPublicKey(string $publicKey): CertificateInterface
+    {
+        return $this->loader->loadFromPublicKey($publicKey);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     public function validate(CertificateInterface $certificate): void
     {
         $this->validator->validate($certificate);

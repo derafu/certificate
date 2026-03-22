@@ -34,7 +34,7 @@ final class Certificate implements CertificateInterface
      *
      * @var string
      */
-    private string $privateKey;
+    private ?string $privateKey = null;
 
     /**
      * Private key details.
@@ -54,12 +54,14 @@ final class Certificate implements CertificateInterface
      * Constructor of the digital certificate.
      *
      * @param string $publicKey Public key (certificate).
-     * @param string $privateKey Private key.
+     * @param string|null $privateKey Private key.
      */
-    public function __construct(string $publicKey, string $privateKey)
+    public function __construct(string $publicKey, ?string $privateKey = null)
     {
         $this->publicKey = AsymmetricKeyHelper::normalizePublicKey($publicKey);
-        $this->privateKey = AsymmetricKeyHelper::normalizePrivateKey($privateKey);
+        if ($privateKey !== null) {
+            $this->privateKey = AsymmetricKeyHelper::normalizePrivateKey($privateKey);
+        }
     }
 
     /**
@@ -69,7 +71,10 @@ final class Certificate implements CertificateInterface
     {
         return [
             'cert' => $this->getPublicKey($clean),
-            'pkey' => $this->getPrivateKey($clean),
+            'pkey' => $this->privateKey !== null
+                ? $this->getPrivateKey($clean)
+                : null
+            ,
         ];
     }
 
@@ -102,6 +107,12 @@ final class Certificate implements CertificateInterface
      */
     public function getPrivateKey(bool $clean = false): string
     {
+        if ($this->privateKey === null) {
+            throw new CertificateException(
+                'The private key is not available in the certificate.'
+            );
+        }
+
         if ($clean) {
             return trim(str_replace(
                 ['-----BEGIN PRIVATE KEY-----', '-----END PRIVATE KEY-----'],
@@ -120,7 +131,7 @@ final class Certificate implements CertificateInterface
     {
         if (!isset($this->privateKeyDetails)) {
             $this->privateKeyDetails = openssl_pkey_get_details(
-                openssl_pkey_get_private($this->privateKey)
+                openssl_pkey_get_private($this->getPrivateKey())
             );
         }
 

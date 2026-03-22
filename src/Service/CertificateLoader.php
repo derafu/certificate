@@ -92,4 +92,12 @@ final class CertificateLoader implements CertificateLoaderInterface
     ): CertificateInterface {
         return new Certificate($publicKey, $privateKey);
     }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function loadFromPublicKey(string $publicKey): CertificateInterface
+    {
+        return new Certificate($publicKey);
+    }
 }
