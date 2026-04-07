@@ -7,7 +7,7 @@ services:
         public: false
 
     # Derafu Certificate Service (entry point for the library).
-      Derafu\Certificate\Contract\CertificateServiceInterface:
+    Derafu\Certificate\Contract\CertificateServiceInterface:
         class: Derafu\Certificate\Service\CertificateService
 
     # Derafu Certificate Faker (handles the generation of self-signed
