@@ -1,0 +1,26 @@
+services:
+
+    # Default configuration for services.
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: false
+
+    # Derafu Certificate Service (entry point for the library).
+      Derafu\Certificate\Contract\CertificateServiceInterface:
+        class: Derafu\Certificate\Service\CertificateService
+
+    # Derafu Certificate Faker (handles the generation of self-signed
+    # certificates for testing).
+    Derafu\Certificate\Contract\CertificateFakerInterface:
+        class: Derafu\Certificate\Service\CertificateFaker
+
+    # Derafu Certificate Loader (handles the configuration and loading of
+    # digital certificates for electronic signatures).
+    Derafu\Certificate\Contract\CertificateLoaderInterface:
+        class: Derafu\Certificate\Service\CertificateLoader
+
+    # Derafu Certificate Validator (handles the validation of digital
+    # certificates for electronic signatures).
+    Derafu\Certificate\Contract\CertificateValidatorInterface:
+        class: Derafu\Certificate\Service\CertificateValidator
