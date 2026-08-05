@@ -23,16 +23,25 @@ use phpseclib3\File\X509;
 final class Certificate implements CertificateInterface
 {
     /**
-     * Public key (certificate).
+     * The X.509 certificate of the holder (the "leaf" certificate).
      *
      * @var string
      */
-    private string $publicKey;
+    private string $certificate;
+
+    /**
+     * Intermediate CA certificates that complete the trust chain of the
+     * holder's certificate, in the order they were provided (subject's
+     * issuer first).
+     *
+     * @var string[]
+     */
+    private array $chain = [];
 
     /**
      * Private key.
      *
-     * @var string
+     * @var string|null
      */
     private ?string $privateKey = null;
 
@@ -44,6 +53,13 @@ final class Certificate implements CertificateInterface
     private array $privateKeyDetails;
 
     /**
+     * Public key details (extracted from the certificate).
+     *
+     * @var array
+     */
+    private array $publicKeyDetails;
+
+    /**
      * Parsed X509 certificate data.
      *
      * @var array
@@ -53,14 +69,32 @@ final class Certificate implements CertificateInterface
     /**
      * Constructor of the digital certificate.
      *
-     * @param string $publicKey Public key (certificate).
-     * @param string|null $privateKey Private key.
+     * @param string $certificate The X.509 certificate of the holder.
+     * @param string|null $privateKey Private key associated with the
+     * certificate.
+     * @param string[] $chain Intermediate CA certificates that complete the
+     * trust chain of the certificate (as returned, for example, by
+     * `openssl_pkcs12_read()` in the `extracerts` index).
      */
-    public function __construct(string $publicKey, ?string $privateKey = null)
-    {
-        $this->publicKey = AsymmetricKeyHelper::normalizePublicKey($publicKey);
+    public function __construct(
+        string $certificate,
+        ?string $privateKey = null,
+        array $chain = []
+    ) {
+        $this->certificate = AsymmetricKeyHelper::normalizeCertificate(
+            $certificate
+        );
+
         if ($privateKey !== null) {
-            $this->privateKey = AsymmetricKeyHelper::normalizePrivateKey($privateKey);
+            $this->privateKey = AsymmetricKeyHelper::normalizePrivateKey(
+                $privateKey
+            );
+        }
+
+        foreach ($chain as $chainCertificate) {
+            $this->chain[] = AsymmetricKeyHelper::normalizeCertificate(
+                $chainCertificate
+            );
         }
     }
 
@@ -70,28 +104,13 @@ final class Certificate implements CertificateInterface
     public function getKeys(bool $clean = false): array
     {
         return [
-            'cert' => $this->getPublicKey($clean),
+            'cert' => $this->getCertificate($clean),
             'pkey' => $this->privateKey !== null
                 ? $this->getPrivateKey($clean)
                 : null
             ,
+            'chain' => $this->getCertificateChain($clean),
         ];
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function getPublicKey(bool $clean = false): string
-    {
-        if ($clean) {
-            return trim(str_replace(
-                ['-----BEGIN CERTIFICATE-----', '-----END CERTIFICATE-----'],
-                '',
-                $this->publicKey
-            ));
-        }
-
-        return $this->publicKey;
     }
 
     /**
@@ -99,7 +118,52 @@ final class Certificate implements CertificateInterface
      */
     public function getCertificate(bool $clean = false): string
     {
-        return $this->getPublicKey($clean);
+        return $clean
+            ? self::stripPem($this->certificate, 'CERTIFICATE')
+            : $this->certificate
+        ;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getCertificateChain(bool $clean = false): array
+    {
+        if (!$clean) {
+            return $this->chain;
+        }
+
+        return array_map(
+            fn (string $certificate) => self::stripPem(
+                $certificate,
+                'CERTIFICATE'
+            ),
+            $this->chain
+        );
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getCertificateBundle(): string
+    {
+        return implode('', [$this->certificate, ...$this->chain]);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getPublicKey(bool $clean = false): string
+    {
+        $publicKey = $this->getPublicKeyDetails()['key'] ?? null;
+
+        if ($publicKey === null) {
+            throw new CertificateException(
+                'Cannot get the public key from the certificate.'
+            );
+        }
+
+        return $clean ? self::stripPem($publicKey, 'PUBLIC KEY') : $publicKey;
     }
 
     /**
@@ -113,15 +177,10 @@ final class Certificate implements CertificateInterface
             );
         }
 
-        if ($clean) {
-            return trim(str_replace(
-                ['-----BEGIN PRIVATE KEY-----', '-----END PRIVATE KEY-----'],
-                '',
-                $this->privateKey
-            ));
-        }
-
-        return $this->privateKey;
+        return $clean
+            ? self::stripPem($this->privateKey, 'PRIVATE KEY')
+            : $this->privateKey
+        ;
     }
 
     /**
@@ -141,10 +200,24 @@ final class Certificate implements CertificateInterface
     /**
      * {@inheritDoc}
      */
+    public function getPublicKeyDetails(): array
+    {
+        if (!isset($this->publicKeyDetails)) {
+            $this->publicKeyDetails = openssl_pkey_get_details(
+                openssl_pkey_get_public($this->certificate)
+            );
+        }
+
+        return $this->publicKeyDetails;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     public function getData(): array
     {
         if (!isset($this->data)) {
-            $this->data = openssl_x509_parse($this->publicKey);
+            $this->data = openssl_x509_parse($this->certificate);
         }
 
         return $this->data;
@@ -155,12 +228,14 @@ final class Certificate implements CertificateInterface
      */
     public function getPkcs12(string $password): string
     {
-        // Export the final certificate in PKCS#12 format.
+        // Export the final certificate in PKCS#12 format, including the
+        // trust chain (if any) so it can be recovered on a later load.
         openssl_pkcs12_export(
-            $this->getPublicKey(),
+            $this->getCertificate(),
             $data,
             $this->getPrivateKey(),
-            $password
+            $password,
+            $this->chain !== [] ? ['extracerts' => $this->chain] : []
         );
 
         // Return the digital certificate data.
@@ -181,7 +256,7 @@ final class Certificate implements CertificateInterface
 
         // Get the extensions of the certificate.
         $x509 = new X509();
-        $cert = $x509->loadX509($this->publicKey);
+        $cert = $x509->loadX509($this->certificate);
         if (isset($cert['tbsCertificate']['extensions'])) {
             foreach ($cert['tbsCertificate']['extensions'] as $extension) {
                 if (
@@ -303,11 +378,11 @@ final class Certificate implements CertificateInterface
      */
     public function getModulus(int $wordwrap = 64): string
     {
-        $modulus = $this->getPrivateKeyDetails()['rsa']['n'] ?? null;
+        $modulus = $this->getPublicKeyDetails()['rsa']['n'] ?? null;
 
         if ($modulus === null) {
             throw new CertificateException(
-                'Cannot get the modulus of the private key.'
+                'Cannot get the modulus of the certificate.'
             );
         }
 
@@ -319,11 +394,11 @@ final class Certificate implements CertificateInterface
      */
     public function getExponent(int $wordwrap = 64): string
     {
-        $exponent = $this->getPrivateKeyDetails()['rsa']['e'] ?? null;
+        $exponent = $this->getPublicKeyDetails()['rsa']['e'] ?? null;
 
         if ($exponent === null) {
             throw new CertificateException(
-                'Cannot get the exponent of the private key.'
+                'Cannot get the exponent of the certificate.'
             );
         }
 
@@ -347,8 +422,12 @@ final class Certificate implements CertificateInterface
             'issuer' => $this->getIssuer(),
             'modulus' => $this->getModulus(),
             'exponent' => $this->getExponent(),
-            'publicKey' => $this->getPublicKey(),
-            'privateKey' => $this->getPrivateKey(),
+            'cert' => $this->getCertificate(),
+            'chain' => $this->getCertificateChain(),
+            'pkey' => $this->privateKey !== null
+                ? $this->getPrivateKey()
+                : null
+            ,
         ];
     }
 
@@ -358,5 +437,25 @@ final class Certificate implements CertificateInterface
     public function jsonSerialize(): array
     {
         return $this->toArray();
+    }
+
+    /**
+     * Removes the header and footer of a PEM encoded block, leaving only the
+     * base64 body.
+     *
+     * @param string $pem PEM encoded block (certificate, public key or
+     * private key).
+     * @param string $type PEM header/footer label (e.g. `CERTIFICATE`,
+     * `PUBLIC KEY`, `PRIVATE KEY`).
+     * @return string The base64 body, without headers, footers or
+     * surrounding whitespace.
+     */
+    private static function stripPem(string $pem, string $type): string
+    {
+        return trim(str_replace(
+            ["-----BEGIN {$type}-----", "-----END {$type}-----"],
+            '',
+            $pem
+        ));
     }
 }

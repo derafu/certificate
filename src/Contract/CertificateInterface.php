@@ -20,30 +20,79 @@ use JsonSerializable;
 interface CertificateInterface extends JsonSerializable
 {
     /**
-     * Returns the public and private keys.
+     * Returns the certificate, the trust chain and the private key.
      *
      * @param boolean $clean If the certificate content is cleaned.
-     * @return array Array with the indices: cert and pkey.
+     * @return array Array with the indices: `cert`, `chain` and `pkey`.
+     * `pkey` will be `null` if the certificate has no private key
+     * associated.
      */
     public function getKeys(bool $clean = false): array;
 
     /**
-     * Returns the public key (certificate).
+     * Returns the X.509 certificate of the holder (the "leaf" certificate).
      *
-     * @param bool $clean If the certificate content is cleaned.
-     * @return string Certificate content, public key of the certificate, in
-     * base64.
-     */
-    public function getPublicKey(bool $clean = false): string;
-
-    /**
-     * Returns the public key (certificate).
+     * This is NOT the trust chain and NOT the raw public key, it is the
+     * certificate: the public key plus the identity data signed by a
+     * Certificate Authority. Use `getCertificateChain()` for the
+     * intermediate CA certificates, `getCertificateBundle()` for this
+     * certificate concatenated with the chain, and `getPublicKey()` for the
+     * raw public key extracted from this certificate.
      *
-     * @param bool $clean If the certificate content is cleaned.
-     * @return string Certificate content, public key of the certificate, in
-     * base64.
+     * @param bool $clean If the certificate content is cleaned (headers and
+     * footers removed).
+     * @return string Certificate content, in base64 (PEM without headers if
+     * `$clean` is `true`).
      */
     public function getCertificate(bool $clean = false): string;
+
+    /**
+     * Returns the intermediate CA certificates that complete the trust chain
+     * of the holder's certificate.
+     *
+     * These are the certificates a TLS client (or any other relying party
+     * that does not already trust the issuing CA directly) needs in order to
+     * build the path from this certificate up to a trusted root. They come,
+     * for example, from the `extracerts` index of `openssl_pkcs12_read()`
+     * when the PKCS#12 file bundles them. If the PKCS#12/certificate did not
+     * include them, this returns an empty array.
+     *
+     * @param bool $clean If the certificate content is cleaned (headers and
+     * footers removed) for each certificate in the chain.
+     * @return string[] Intermediate CA certificates, in the order provided
+     * (subject's issuer first), empty if there is no chain.
+     */
+    public function getCertificateChain(bool $clean = false): array;
+
+    /**
+     * Returns this certificate concatenated with its trust chain, as a
+     * single PEM bundle (leaf certificate first, then the intermediate CA
+     * certificates in order).
+     *
+     * This is the value that must be presented, for example, as the client
+     * certificate in a mutual TLS handshake when the issuing CA is not
+     * trusted directly by the remote party (only sending `getCertificate()`
+     * would make the handshake fail with a `unknown ca` alert in that case).
+     *
+     * @return string PEM bundle. Always includes the PEM headers/footers of
+     * every certificate, since that is required to tell them apart.
+     */
+    public function getCertificateBundle(): string;
+
+    /**
+     * Returns the raw public key extracted from the certificate.
+     *
+     * This is NOT the certificate: it is only the public key material (e.g.
+     * the RSA modulus and exponent) that the certificate certifies belongs
+     * to its subject, without the identity data or the CA's signature. Use
+     * `getCertificate()` when what is needed is the certificate itself.
+     *
+     * @param bool $clean If the public key content is cleaned (headers and
+     * footers removed).
+     * @return string Public key content, in base64 (PEM without headers if
+     * `$clean` is `true`).
+     */
+    public function getPublicKey(bool $clean = false): string;
 
     /**
      * Returns the private key.
@@ -59,6 +108,18 @@ interface CertificateInterface extends JsonSerializable
      * @return array
      */
     public function getPrivateKeyDetails(): array;
+
+    /**
+     * Returns the public key details, extracted from the certificate.
+     *
+     * Unlike `getPrivateKeyDetails()`, this is available even when the
+     * certificate has no private key associated (e.g. when it was loaded
+     * with `loadFromCertificate()`), since the public key is always part of
+     * the certificate itself.
+     *
+     * @return array
+     */
+    public function getPublicKeyDetails(): array;
 
     /**
      * Returns the certificate data as an array.
@@ -152,14 +213,14 @@ interface CertificateInterface extends JsonSerializable
     public function getIssuer(): string;
 
     /**
-     * Returns the modulus of the private key.
+     * Returns the modulus of the certificate's public key.
      *
      * @return string Modulus in base64.
      */
     public function getModulus(int $wordwrap = 64): string;
 
     /**
-     * Returns the public exponent of the private key.
+     * Returns the public exponent of the certificate's public key.
      *
      * @return string Public exponent in base64.
      */
@@ -168,7 +229,8 @@ interface CertificateInterface extends JsonSerializable
     /**
      * Returns the certificate data as an array.
      *
-     * @return array Array with all the certificate data.
+     * @return array Array with all the certificate data, including the
+     * indices `cert`, `chain` and `pkey` (see `getKeys()`).
      */
     public function toArray(): array;
 }

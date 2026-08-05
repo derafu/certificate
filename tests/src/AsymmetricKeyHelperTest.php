@@ -22,24 +22,24 @@ use PHPUnit\Framework\TestCase;
 final class AsymmetricKeyHelperTest extends TestCase
 {
     /**
-     * Verifies that `normalizePublicKey()` adds the headers and footers
+     * Verifies that `normalizeCertificate()` adds the headers and footers
      * correctly when the certificate does not have them.
      */
-    public function testAsymmetricKeyNormalizePublicKeyWithoutHeaders(): void
+    public function testAsymmetricKeyNormalizeCertificateWithoutHeaders(): void
     {
         $certBody = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA7sN2a9z8/PQleNzl+Tbh...";
         $expectedCert = "-----BEGIN CERTIFICATE-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA7sN2a9z8/PQleNzl+Tbh\n...\n-----END CERTIFICATE-----\n";
 
-        $normalizedCert = AsymmetricKeyHelper::normalizePublicKey($certBody);
+        $normalizedCert = AsymmetricKeyHelper::normalizeCertificate($certBody);
 
         $this->assertSame($expectedCert, $normalizedCert);
     }
 
     /**
-     * Verifies that `normalizePublicKey()` does not modify a certificate that
+     * Verifies that `normalizeCertificate()` does not modify a certificate that
      * already has headers and footers.
      */
-    public function testAsymmetricKeyNormalizePublicKeyWithHeaders(): void
+    public function testAsymmetricKeyNormalizeCertificateWithHeaders(): void
     {
         $cert = <<<CERT
         -----BEGIN CERTIFICATE-----
@@ -47,22 +47,22 @@ final class AsymmetricKeyHelperTest extends TestCase
         -----END CERTIFICATE-----
         CERT;
 
-        $normalizedCert = AsymmetricKeyHelper::normalizePublicKey($cert);
+        $normalizedCert = AsymmetricKeyHelper::normalizeCertificate($cert);
 
         $this->assertSame($cert, $normalizedCert);
     }
 
     /**
-     * Verifies that `normalizePublicKey()` respects the `wordwrap` when adding
+     * Verifies that `normalizeCertificate()` respects the `wordwrap` when adding
      * headers and footers.
      */
-    public function testAsymmetricKeyNormalizePublicKeyWithCustomWordwrap(): void
+    public function testAsymmetricKeyNormalizeCertificateWithCustomWordwrap(): void
     {
         $certBody = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA7sN2a9z8/PQleNzl+Tbh...";
         $wordwrap = 10;
         $expectedCert = "-----BEGIN CERTIFICATE-----\nMIIBIjANBg\nkqhkiG9w0B\nAQEFAAOCAQ\n8AMIIBCgKC\nAQEA7sN2a9\nz8/PQleNzl\n+Tbh...\n-----END CERTIFICATE-----\n";
 
-        $normalizedCert = AsymmetricKeyHelper::normalizePublicKey($certBody, $wordwrap);
+        $normalizedCert = AsymmetricKeyHelper::normalizeCertificate($certBody, $wordwrap);
 
         $this->assertSame($expectedCert, $normalizedCert);
     }

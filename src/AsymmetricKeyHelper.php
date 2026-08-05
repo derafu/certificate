@@ -24,31 +24,30 @@ use phpseclib3\Math\BigInteger;
 class AsymmetricKeyHelper
 {
     /**
-     * Normalizes a public key (certificate) by adding headers and footers if
-     * necessary.
+     * Normalizes a certificate by adding headers and footers if necessary.
      *
-     * @param string $publicKey Public key that you want to normalize.
+     * @param string $certificate Certificate that you want to normalize.
      * @param int $wordwrap Length to which each line of the file must be left.
-     * @return string Normalized public key.
+     * @return string Normalized certificate.
      */
-    public static function normalizePublicKey(
-        string $publicKey,
+    public static function normalizeCertificate(
+        string $certificate,
         int $wordwrap = 64
     ): string {
-        if (empty($publicKey)) {
+        if (empty($certificate)) {
             throw new CertificateException(
-                'The public key cannot be empty.'
+                'The certificate cannot be empty.'
             );
         }
 
-        if (!str_contains($publicKey, '-----BEGIN CERTIFICATE-----')) {
-            $body = trim($publicKey);
-            $publicKey = '-----BEGIN CERTIFICATE-----' . "\n";
-            $publicKey .= wordwrap($body, $wordwrap, "\n", true) . "\n";
-            $publicKey .= '-----END CERTIFICATE-----' . "\n";
+        if (!str_contains($certificate, '-----BEGIN CERTIFICATE-----')) {
+            $body = trim($certificate);
+            $certificate = '-----BEGIN CERTIFICATE-----' . "\n";
+            $certificate .= wordwrap($body, $wordwrap, "\n", true) . "\n";
+            $certificate .= '-----END CERTIFICATE-----' . "\n";
         }
 
-        return $publicKey;
+        return $certificate;
     }
 
     /**

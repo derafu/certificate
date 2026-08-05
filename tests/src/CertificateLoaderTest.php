@@ -27,7 +27,6 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(Certificate::class)]
 #[CoversClass(CertificateException::class)]
 #[CoversClass(CertificateFaker::class)]
-#[CoversClass(CertificateFaker::class)]
 #[CoversClass(CertificateLoader::class)]
 #[CoversClass(AsymmetricKeyHelper::class)]
 #[CoversClass(SelfSignedCertificate::class)]
@@ -67,11 +66,94 @@ final class CertificateLoaderTest extends TestCase
         $this->assertInstanceOf(CertificateInterface::class, $certificate);
     }
 
+    /**
+     * Ensures that the intermediate CA certificate bundled in the PKCS#12
+     * data (the `extracerts` index of `openssl_pkcs12_read()`) is preserved
+     * as the trust chain of the loaded certificate, instead of being
+     * silently discarded.
+     */
+    public function testCreateFromDataPreservesCertificateChain(): void
+    {
+        $password = 'hola_mundo';
+
+        $data = $this->faker->createFake()->getPkcs12($password);
+        $certificate = $this->loader->loadFromData($data, $password);
+
+        $chain = $certificate->getCertificateChain();
+        $this->assertCount(1, $chain);
+        $this->assertStringContainsString('-----BEGIN CERTIFICATE-----', $chain[0]);
+    }
+
     public function testCreateFromArray(): void
     {
         $certs = $this->faker->createFake()->getKeys();
         $certificate = $this->loader->loadFromArray($certs);
         $this->assertInstanceOf(CertificateInterface::class, $certificate);
+    }
+
+    /**
+     * Ensures that the chain produced by `getKeys()` round-trips through
+     * `loadFromArray()`.
+     */
+    public function testCreateFromArrayPreservesCertificateChain(): void
+    {
+        $certs = $this->faker->createFake()->getKeys();
+        $this->assertCount(1, $certs['chain']);
+
+        $certificate = $this->loader->loadFromArray($certs);
+        $this->assertCount(1, $certificate->getCertificateChain());
+    }
+
+    /**
+     * Ensures that a Certificate can be loaded from a certificate only
+     * (no private key), for verification-only scenarios.
+     */
+    public function testLoadFromCertificate(): void
+    {
+        $original = $this->faker->createFake();
+
+        $certificate = $this->loader->loadFromCertificate(
+            $original->getCertificate()
+        );
+
+        $this->assertInstanceOf(CertificateInterface::class, $certificate);
+        $this->assertSame($original->getId(), $certificate->getId());
+
+        $this->expectException(CertificateException::class);
+        $certificate->getPrivateKey();
+    }
+
+    /**
+     * Ensures that the trust chain can be provided explicitly to
+     * `loadFromCertificate()`.
+     */
+    public function testLoadFromCertificateWithChain(): void
+    {
+        $original = $this->faker->createFake();
+
+        $certificate = $this->loader->loadFromCertificate(
+            $original->getCertificate(),
+            $original->getCertificateChain()
+        );
+
+        $this->assertCount(1, $certificate->getCertificateChain());
+    }
+
+    /**
+     * Ensures that the trust chain can be provided explicitly to
+     * `loadFromKeys()`.
+     */
+    public function testLoadFromKeysWithChain(): void
+    {
+        $original = $this->faker->createFake();
+
+        $certificate = $this->loader->loadFromKeys(
+            $original->getCertificate(),
+            $original->getPrivateKey(),
+            $original->getCertificateChain()
+        );
+
+        $this->assertCount(1, $certificate->getCertificateChain());
     }
 
     /**
@@ -99,14 +181,14 @@ final class CertificateLoaderTest extends TestCase
 
     /**
      * Ensures that an exception is thrown when the array does not contain a
-     * public key.
+     * certificate.
      */
-    public function testCreateFromArrayThrowsExceptionForMissingPublicKey(): void
+    public function testCreateFromArrayThrowsExceptionForMissingCertificate(): void
     {
         $this->expectException(CertificateException::class);
-        $this->expectExceptionMessage('The public key of the certificate was not found.');
+        $this->expectExceptionMessage('The certificate was not found.');
         $certs = $this->faker->createFake()->getKeys();
-        unset($certs['cert']); // Eliminar la clave pública para simular un array inválido.
+        unset($certs['cert']); // Delete the certificate to simulate an invalid array.
         $this->loader->loadFromArray($certs);
     }
 

@@ -81,18 +81,21 @@ final class CertificateService implements CertificateServiceInterface
      * {@inheritDoc}
      */
     public function loadFromKeys(
-        string $publicKey,
-        string $privateKey
+        string $certificate,
+        string $privateKey,
+        array $chain = []
     ): CertificateInterface {
-        return $this->loader->loadFromKeys($publicKey, $privateKey);
+        return $this->loader->loadFromKeys($certificate, $privateKey, $chain);
     }
 
     /**
      * {@inheritDoc}
      */
-    public function loadFromPublicKey(string $publicKey): CertificateInterface
-    {
-        return $this->loader->loadFromPublicKey($publicKey);
+    public function loadFromCertificate(
+        string $certificate,
+        array $chain = []
+    ): CertificateInterface {
+        return $this->loader->loadFromCertificate($certificate, $chain);
     }
 
     /**

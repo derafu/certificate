@@ -48,7 +48,7 @@ final class CertificateValidatorTest extends TestCase
     {
         $certificate = $this->faker->createFake();
         $this->validator->validate($certificate);
-        $this->assertTrue(true);
+        $this->assertTrue($certificate->isActive());
     }
 
     public function testInvalidCertificate(): void

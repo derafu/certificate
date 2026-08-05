@@ -15,6 +15,7 @@ namespace Derafu\TestsCertificate;
 use Derafu\Certificate\AsymmetricKeyHelper;
 use Derafu\Certificate\Certificate;
 use Derafu\Certificate\Contract\CertificateFakerInterface;
+use Derafu\Certificate\Contract\CertificateLoaderInterface;
 use Derafu\Certificate\Exception\CertificateException;
 use Derafu\Certificate\SelfSignedCertificate;
 use Derafu\Certificate\Service\CertificateFaker;
@@ -32,10 +33,12 @@ final class CertificateTest extends TestCase
 {
     private CertificateFakerInterface $faker;
 
+    private CertificateLoaderInterface $loader;
+
     protected function setUp(): void
     {
-        $loader = new CertificateLoader();
-        $this->faker = new CertificateFaker($loader);
+        $this->loader = new CertificateLoader();
+        $this->faker = new CertificateFaker($this->loader);
     }
 
     public function testCertificateDefaultData(): void
@@ -132,8 +135,69 @@ final class CertificateTest extends TestCase
         $certificate = $this->faker->createFake();
         $data = $certificate->getData();
 
-        $this->assertIsArray($data);
         $this->assertArrayHasKey('subject', $data);
         $this->assertArrayHasKey('issuer', $data);
+    }
+
+    /**
+     * Ensures that `getPublicKey()` returns the raw public key, not the
+     * certificate: it must be a different PEM block than `getCertificate()`.
+     */
+    public function testGetPublicKeyReturnsRawPublicKeyNotCertificate(): void
+    {
+        $certificate = $this->faker->createFake();
+
+        $publicKey = $certificate->getPublicKey();
+        $x509Certificate = $certificate->getCertificate();
+
+        $this->assertNotSame($x509Certificate, $publicKey);
+        $this->assertStringContainsString('-----BEGIN PUBLIC KEY-----', $publicKey);
+        $this->assertStringContainsString('-----BEGIN CERTIFICATE-----', $x509Certificate);
+    }
+
+    /**
+     * Ensures that the intermediate CA certificate is available through
+     * `getCertificateChain()` and is not silently discarded.
+     */
+    public function testGetCertificateChainReturnsIntermediateCertificate(): void
+    {
+        $certificate = $this->faker->createFake();
+
+        $chain = $certificate->getCertificateChain();
+
+        $this->assertCount(1, $chain);
+        $this->assertStringContainsString('-----BEGIN CERTIFICATE-----', $chain[0]);
+    }
+
+    /**
+     * Ensures that `getCertificateBundle()` concatenates the certificate and
+     * its trust chain, in that order, with PEM headers preserved.
+     */
+    public function testGetCertificateBundleIncludesCertificateAndChain(): void
+    {
+        $certificate = $this->faker->createFake();
+
+        $bundle = $certificate->getCertificateBundle();
+
+        $this->assertSame(2, substr_count($bundle, '-----BEGIN CERTIFICATE-----'));
+        $this->assertStringStartsWith($certificate->getCertificate(), $bundle);
+        $this->assertStringEndsWith($certificate->getCertificateChain()[0], $bundle);
+    }
+
+    /**
+     * Ensures that the modulus and exponent are derived from the
+     * certificate's public key, so they remain available even when the
+     * certificate has no private key associated (e.g. when it was loaded
+     * with `loadFromCertificate()` for verification-only purposes).
+     */
+    public function testGetModulusAndExponentDoNotRequireAPrivateKey(): void
+    {
+        $original = $this->faker->createFake();
+        $certificate = $this->loader->loadFromCertificate(
+            $original->getCertificate()
+        );
+
+        $this->assertSame($original->getModulus(), $certificate->getModulus());
+        $this->assertSame($original->getExponent(), $certificate->getExponent());
     }
 }

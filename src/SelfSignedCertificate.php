@@ -233,12 +233,16 @@ final class SelfSignedCertificate
             );
         }
 
-        // Export the final certificate in PKCS#12 format.
+        // Export the final certificate in PKCS#12 format, bundling the
+        // issuer certificate (CA) as the trust chain. This mirrors what a
+        // real accredited certification authority does when the issuer is
+        // not a root CA trusted directly by every relying party.
         openssl_pkcs12_export(
             $subjectCert,
             $data,
             $subjectPrivateKey,
-            $this->password
+            $this->password,
+            ['extracerts' => [$issuerCert]]
         );
 
         // Return the digital certificate data.

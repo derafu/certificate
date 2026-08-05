@@ -57,7 +57,11 @@ final class CertificateLoader implements CertificateLoaderInterface
             ));
         }
 
-        return self::loadFromKeys($certs['cert'], $certs['pkey']);
+        return self::loadFromKeys(
+            $certs['cert'],
+            $certs['pkey'],
+            $certs['extracerts'] ?? []
+        );
     }
 
     /**
@@ -65,12 +69,13 @@ final class CertificateLoader implements CertificateLoaderInterface
      */
     public function loadFromArray(array $data): CertificateInterface
     {
-        $publicKey = $data['publicKey'] ?? $data['cert'] ?? null;
-        $privateKey = $data['privateKey'] ?? $data['pkey'] ?? null;
+        $certificate = $data['cert'] ?? $data['certificate'] ?? null;
+        $privateKey = $data['pkey'] ?? $data['privateKey'] ?? null;
+        $chain = $data['chain'] ?? $data['extracerts'] ?? [];
 
-        if ($publicKey === null) {
+        if ($certificate === null) {
             throw new CertificateException(
-                'The public key of the certificate was not found.'
+                'The certificate was not found.'
             );
         }
 
@@ -80,24 +85,27 @@ final class CertificateLoader implements CertificateLoaderInterface
             );
         }
 
-        return self::loadFromKeys($publicKey, $privateKey);
+        return self::loadFromKeys($certificate, $privateKey, $chain);
     }
 
     /**
      * {@inheritDoc}
      */
     public function loadFromKeys(
-        string $publicKey,
-        string $privateKey
+        string $certificate,
+        string $privateKey,
+        array $chain = []
     ): CertificateInterface {
-        return new Certificate($publicKey, $privateKey);
+        return new Certificate($certificate, $privateKey, $chain);
     }
 
     /**
      * {@inheritDoc}
      */
-    public function loadFromPublicKey(string $publicKey): CertificateInterface
-    {
-        return new Certificate($publicKey);
+    public function loadFromCertificate(
+        string $certificate,
+        array $chain = []
+    ): CertificateInterface {
+        return new Certificate($certificate, null, $chain);
     }
 }
