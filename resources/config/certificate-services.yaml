@@ -11,6 +11,25 @@ services:
         autoconfigure: true
         public: false
 
+    # Derafu Certificate Service (entry point for the library).
+    Derafu\Certificate\Contract\CertificateServiceInterface:
+        class: Derafu\Certificate\Service\CertificateService
+
+    # Derafu Certificate Faker (handles the generation of self-signed
+    # certificates for testing).
+    Derafu\Certificate\Contract\CertificateFakerInterface:
+        class: Derafu\Certificate\Service\CertificateFaker
+
+    # Derafu Certificate Loader (handles the configuration and loading of
+    # digital certificates).
+    Derafu\Certificate\Contract\CertificateLoaderInterface:
+        class: Derafu\Certificate\Service\CertificateLoader
+
+    # Derafu Certificate Validator (handles the validation of digital
+    # certificates).
+    Derafu\Certificate\Contract\CertificateValidatorInterface:
+        class: Derafu\Certificate\Service\CertificateValidator
+
     # Feeds resources/translations into the consuming app's Translator (the
     # app must pass $resourceProviders: !tagged_iterator
     # derafu_translation.resource_provider to TranslatorFactory::create(),
