@@ -14,6 +14,7 @@ namespace Derafu\Certificate;
 
 use Derafu\Certificate\Exception\CertificateException;
 use OpenSSLAsymmetricKey;
+use OpenSSLCertificateSigningRequest;
 
 /**
  * Class that generates self-signed certificates and returns them as a string of
@@ -24,21 +25,21 @@ final class SelfSignedCertificate
     /**
      * Subject data of the certificate.
      *
-     * @var array
+     * @var array<string, string>
      */
     private array $subject;
 
     /**
      * Issuer data of the certificate.
      *
-     * @var array
+     * @var array<string, string>
      */
     private array $issuer;
 
     /**
      * Validity of the certificate in UNIX timestamp format.
      *
-     * @var array
+     * @var array{days: int}
      */
     private array $validity;
 
@@ -189,6 +190,11 @@ final class SelfSignedCertificate
             );
         }
         $issuerCsr = openssl_csr_new($this->issuer, $issuerPrivateKey);
+        if (!$issuerCsr instanceof OpenSSLCertificateSigningRequest) {
+            throw new CertificateException(
+                'It was not possible to generate the CSR of the issuer of the certificate.'
+            );
+        }
 
         // Create self-signed certificate for the issuer (CA).
         $issuerCert = openssl_csr_sign(
@@ -215,6 +221,11 @@ final class SelfSignedCertificate
             );
         }
         $subjectCsr = openssl_csr_new($this->subject, $subjectPrivateKey);
+        if (!$subjectCsr instanceof OpenSSLCertificateSigningRequest) {
+            throw new CertificateException(
+                'It was not possible to generate the CSR of the certificate.'
+            );
+        }
 
         // Use the issuer certificate to sign the subject CSR.
         $subjectCert = openssl_csr_sign(
@@ -253,7 +264,7 @@ final class SelfSignedCertificate
      * Generates a digital certificate in PKCS#12 format and returns it as an
      * array.
      *
-     * @return array Digital certificate in PKCS#12 format.
+     * @return array<string, mixed> Digital certificate in PKCS#12 format.
      */
     public function toArray(): array
     {

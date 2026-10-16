@@ -18,8 +18,7 @@ use Derafu\Certificate\Contract\CertificateLoaderInterface;
 use Derafu\Certificate\Exception\CertificateException;
 
 /**
- * Class that handles the configuration and loading of digital certificates for
- * electronic signatures.
+ * Class that handles the configuration and loading of digital certificates.
  */
 final class CertificateLoader implements CertificateLoaderInterface
 {
@@ -31,13 +30,19 @@ final class CertificateLoader implements CertificateLoaderInterface
         string $password
     ): CertificateInterface {
         if (!is_readable($filepath)) {
-            throw new CertificateException(sprintf(
-                'It was not possible to read the digital certificate file from %s',
-                $filepath
-            ));
+            throw new CertificateException([
+                'It was not possible to read the digital certificate file from {path}',
+                'path' => $filepath,
+            ]);
         }
 
         $data = file_get_contents($filepath);
+        if ($data === false) {
+            throw new CertificateException([
+                'It was not possible to read the digital certificate file from {path}',
+                'path' => $filepath,
+            ]);
+        }
 
         return self::loadFromData($data, $password);
     }
@@ -52,9 +57,14 @@ final class CertificateLoader implements CertificateLoaderInterface
         $certs = [];
 
         if (openssl_pkcs12_read($data, $certs, $password) === false) {
-            throw new CertificateException(sprintf(
-                'It was not possible to read the digital certificate data.',
-            ));
+            $errors = CertificateException::opensslErrors();
+
+            throw new CertificateException(
+                $errors === []
+                    ? 'It was not possible to read the digital certificate data.'
+                    : ['It was not possible to read the digital certificate data. {errors}', 'errors' => implode(' ', $errors)],
+                errors: $errors
+            );
         }
 
         return self::loadFromKeys(
@@ -82,6 +92,24 @@ final class CertificateLoader implements CertificateLoaderInterface
         if ($privateKey === null) {
             throw new CertificateException(
                 'The private key of the certificate was not found.'
+            );
+        }
+
+        if (!is_string($certificate)) {
+            throw new CertificateException(
+                'The certificate must be a text.'
+            );
+        }
+
+        if (!is_string($privateKey)) {
+            throw new CertificateException(
+                'The private key of the certificate must be a text.'
+            );
+        }
+
+        if (!is_array($chain) || array_filter($chain, is_string(...)) !== $chain) {
+            throw new CertificateException(
+                'The chain of the certificate must contain only texts.'
             );
         }
 

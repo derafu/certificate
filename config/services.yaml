@@ -16,11 +16,11 @@ services:
         class: Derafu\Certificate\Service\CertificateFaker
 
     # Derafu Certificate Loader (handles the configuration and loading of
-    # digital certificates for electronic signatures).
+    # digital certificates).
     Derafu\Certificate\Contract\CertificateLoaderInterface:
         class: Derafu\Certificate\Service\CertificateLoader
 
     # Derafu Certificate Validator (handles the validation of digital
-    # certificates for electronic signatures).
+    # certificates).
     Derafu\Certificate\Contract\CertificateValidatorInterface:
         class: Derafu\Certificate\Service\CertificateValidator

@@ -13,12 +13,14 @@ declare(strict_types=1);
 namespace Derafu\TestsCertificate;
 
 use Derafu\Certificate\AsymmetricKeyHelper;
+use Derafu\Certificate\Exception\CertificateException;
 use phpseclib3\Crypt\PublicKeyLoader;
 use phpseclib3\Math\BigInteger;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(AsymmetricKeyHelper::class)]
+#[CoversClass(CertificateException::class)]
 final class AsymmetricKeyHelperTest extends TestCase
 {
     /**
@@ -133,5 +135,17 @@ final class AsymmetricKeyHelperTest extends TestCase
         $publicKey = AsymmetricKeyHelper::generatePublicKeyFromModulusExponent($modulus, $exponent);
 
         $this->assertSame($expectedPublicKey, $publicKey);
+    }
+
+    public function testNormalizeCertificateThrowsExceptionForAnEmptyCertificate(): void
+    {
+        $this->expectException(CertificateException::class);
+        AsymmetricKeyHelper::normalizeCertificate('');
+    }
+
+    public function testNormalizePrivateKeyThrowsExceptionForAnEmptyPrivateKey(): void
+    {
+        $this->expectException(CertificateException::class);
+        AsymmetricKeyHelper::normalizePrivateKey('');
     }
 }

@@ -13,13 +13,13 @@ declare(strict_types=1);
 namespace Derafu\Certificate;
 
 use Derafu\Certificate\Exception\CertificateException;
-use LogicException;
+use Derafu\Translation\Exception\Core\TranslatableLogicException as LogicException;
 use phpseclib3\Crypt\PublicKeyLoader;
 use phpseclib3\Math\BigInteger;
 
 /**
  * Class that provides common utilities for RSA certificates that use asymmetric
- * encryption. These are used, for example, in electronic signature.
+ * encryption.
  */
 class AsymmetricKeyHelper
 {
@@ -103,6 +103,13 @@ class AsymmetricKeyHelper
             'e' => $exponent,
         ]);
 
-        return (string) $rsa->toString('PKCS1');
+        $key = $rsa->toString('PKCS1');
+        if (!is_string($key)) {
+            throw new CertificateException(
+                'It was not possible to generate the public key from the modulus and the exponent.'
+            );
+        }
+
+        return $key;
     }
 }

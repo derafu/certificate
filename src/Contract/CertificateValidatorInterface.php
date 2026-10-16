@@ -20,7 +20,7 @@ use Derafu\Certificate\Exception\CertificateException;
 interface CertificateValidatorInterface
 {
     /**
-     * Performs different validations of the electronic signature.
+     * Performs different validations of the certificate.
      *
      * @return void
      * @throws CertificateException

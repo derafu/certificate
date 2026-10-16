@@ -62,7 +62,7 @@ interface CertificateLoaderInterface
      * Creates a Certificate instance from an array that contains the
      * certificate, the private key and, optionally, the trust chain.
      *
-     * @param array $data Array that contains the keys 'cert' (or
+     * @param array<string, mixed> $data Array that contains the keys 'cert' (or
      * 'certificate'), 'pkey' (or 'privateKey') and, optionally, 'chain' (or
      * 'extracerts') with the intermediate CA certificates.
      * @return CertificateInterface Instance of the Certificate class that

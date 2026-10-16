@@ -48,21 +48,21 @@ final class Certificate implements CertificateInterface
     /**
      * Private key details.
      *
-     * @var array
+     * @var array{bits: int, key: string, rsa?: array<string, string>, dsa?: array<string, string>, dh?: array<string, string>, ec?: array<string, mixed>, type: int}
      */
     private array $privateKeyDetails;
 
     /**
      * Public key details (extracted from the certificate).
      *
-     * @var array
+     * @var array{bits: int, key: string, rsa?: array<string, string>, dsa?: array<string, string>, dh?: array<string, string>, ec?: array<string, mixed>, type: int}
      */
     private array $publicKeyDetails;
 
     /**
      * Parsed X509 certificate data.
      *
-     * @var array
+     * @var array{name: string, subject: array<string, string|list<string>>, hash: string, issuer: array<string, string|list<string>>, version: int, serialNumber: string, serialNumberHex: string, validFrom: string, validTo: string, validFrom_time_t: int, validTo_time_t: int, signatureTypeSN: string, signatureTypeLN: string, signatureTypeNID: int, purposes: array<int, array{bool, bool, string}>, extensions?: array<string, string>}
      */
     private array $data;
 
@@ -155,13 +155,7 @@ final class Certificate implements CertificateInterface
      */
     public function getPublicKey(bool $clean = false): string
     {
-        $publicKey = $this->getPublicKeyDetails()['key'] ?? null;
-
-        if ($publicKey === null) {
-            throw new CertificateException(
-                'Cannot get the public key from the certificate.'
-            );
-        }
+        $publicKey = $this->getPublicKeyDetails()['key'];
 
         return $clean ? self::stripPem($publicKey, 'PUBLIC KEY') : $publicKey;
     }
@@ -189,9 +183,15 @@ final class Certificate implements CertificateInterface
     public function getPrivateKeyDetails(): array
     {
         if (!isset($this->privateKeyDetails)) {
-            $this->privateKeyDetails = openssl_pkey_get_details(
-                openssl_pkey_get_private($this->getPrivateKey())
-            );
+            $key = openssl_pkey_get_private($this->getPrivateKey());
+            $details = $key !== false ? openssl_pkey_get_details($key) : false;
+            if ($details === false) {
+                throw new CertificateException(
+                    'It was not possible to read the private key of the certificate.'
+                );
+            }
+            /** @var array{bits: int, key: string, rsa?: array<string, string>, dsa?: array<string, string>, dh?: array<string, string>, ec?: array<string, mixed>, type: int} $details */
+            $this->privateKeyDetails = $details;
         }
 
         return $this->privateKeyDetails;
@@ -203,9 +203,15 @@ final class Certificate implements CertificateInterface
     public function getPublicKeyDetails(): array
     {
         if (!isset($this->publicKeyDetails)) {
-            $this->publicKeyDetails = openssl_pkey_get_details(
-                openssl_pkey_get_public($this->certificate)
-            );
+            $key = openssl_pkey_get_public($this->certificate);
+            $details = $key !== false ? openssl_pkey_get_details($key) : false;
+            if ($details === false) {
+                throw new CertificateException(
+                    'It was not possible to read the public key of the certificate.'
+                );
+            }
+            /** @var array{bits: int, key: string, rsa?: array<string, string>, dsa?: array<string, string>, dh?: array<string, string>, ec?: array<string, mixed>, type: int} $details */
+            $this->publicKeyDetails = $details;
         }
 
         return $this->publicKeyDetails;
@@ -217,7 +223,14 @@ final class Certificate implements CertificateInterface
     public function getData(): array
     {
         if (!isset($this->data)) {
-            $this->data = openssl_x509_parse($this->certificate);
+            $data = openssl_x509_parse($this->certificate);
+            if ($data === false) {
+                throw new CertificateException(
+                    'It was not possible to read the data of the certificate.'
+                );
+            }
+            /** @var array{name: string, subject: array<string, string|list<string>>, hash: string, issuer: array<string, string|list<string>>, version: int, serialNumber: string, serialNumberHex: string, validFrom: string, validTo: string, validFrom_time_t: int, validTo_time_t: int, signatureTypeSN: string, signatureTypeLN: string, signatureTypeNID: int, purposes: array<int, array{bool, bool, string}>, extensions?: array<string, string>} $data */
+            $this->data = $data;
         }
 
         return $this->data;
@@ -244,68 +257,134 @@ final class Certificate implements CertificateInterface
 
     /**
      * {@inheritDoc}
+     *
+     * If the certificate has several IDs, the first one is returned. Use
+     * `getIds()` to get all of them.
      */
     public function getId(bool $forceUpper = true): string
     {
-        // Verify the serialNumber in the subject of the certificate.
-        $serialNumber = $this->getData()['subject']['serialNumber'] ?? null;
-        if ($serialNumber !== null) {
-            $serialNumber = ltrim(trim($serialNumber), '0');
-            return $forceUpper ? strtoupper($serialNumber) : $serialNumber;
+        $id = $this->getIds($forceUpper)[0] ?? null;
+        if ($id === null) {
+            throw new CertificateException(
+                'Cannot get the ID of the digital certificate. It is recommended to verify the format and password of the certificate.'
+            );
         }
 
-        // Get the extensions of the certificate.
-        $x509 = new X509();
-        $cert = $x509->loadX509($this->certificate);
-        if (isset($cert['tbsCertificate']['extensions'])) {
-            foreach ($cert['tbsCertificate']['extensions'] as $extension) {
-                if (
-                    $extension['extnId'] === 'id-ce-subjectAltName'
-                    && isset($extension['extnValue'][0]['otherName']['value']['ia5String'])
-                ) {
-                    $id = ltrim(
-                        trim($extension['extnValue'][0]['otherName']['value']['ia5String']),
-                        '0'
-                    );
-                    return $forceUpper ? strtoupper($id) : $id;
-                }
+        return $id;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getIds(bool $forceUpper = true): array
+    {
+        // The serialNumber fields in the subject of the certificate.
+        $ids = array_map(
+            fn (string $serialNumber): string => ltrim(trim($serialNumber), '0'),
+            $this->getValues($this->getData()['subject'], 'serialNumber')
+        );
+
+        // If there are none, the ID of the subject alternative name extension.
+        if ($ids === []) {
+            $x509 = new X509();
+            $id = $this->getIdFromExtensions($x509->loadX509($this->certificate));
+            $ids = $id !== null ? [$id] : [];
+        }
+
+        return $forceUpper ? array_map('strtoupper', $ids) : $ids;
+    }
+
+    /**
+     * Gets all the values of a field of the subject or the issuer.
+     *
+     * A field that appears more than once in a distinguished name is a list
+     * for OpenSSL, and a string when it appears once.
+     *
+     * @param array<string, string|list<string>> $fields
+     * @return list<string>
+     */
+    private function getValues(array $fields, string $name): array
+    {
+        $values = $fields[$name] ?? [];
+
+        return is_array($values) ? $values : [$values];
+    }
+
+    /**
+     * Gets the ID from the subject alternative name extension of a parsed X.509
+     * certificate.
+     *
+     * @param mixed $cert The certificate as phpseclib parses it.
+     * @return string|null The ID, without the leading zeros, or `null` if the
+     * certificate has no ID in that extension.
+     */
+    private function getIdFromExtensions(mixed $cert): ?string
+    {
+        $tbsCertificate = is_array($cert) ? ($cert['tbsCertificate'] ?? null) : null;
+        $extensions = is_array($tbsCertificate) ? ($tbsCertificate['extensions'] ?? null) : null;
+        if (!is_array($extensions)) {
+            return null;
+        }
+
+        foreach ($extensions as $extension) {
+            if (!is_array($extension) || ($extension['extnId'] ?? null) !== 'id-ce-subjectAltName') {
+                continue;
+            }
+
+            $names = $extension['extnValue'] ?? null;
+            $name = is_array($names) ? ($names[0] ?? null) : null;
+            $otherName = is_array($name) ? ($name['otherName'] ?? null) : null;
+            $value = is_array($otherName) ? ($otherName['value'] ?? null) : null;
+            $ia5String = is_array($value) ? ($value['ia5String'] ?? null) : null;
+
+            if (is_string($ia5String)) {
+                return ltrim(trim($ia5String), '0');
             }
         }
 
-        // The ID was not found, throw an exception.
-        throw new CertificateException(
-            'Cannot get the ID of the digital certificate (electronic signature). It is recommended to verify the format and password of the certificate.'
+        return null;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * If the subject has several CN, the first one is returned. Use
+     * `getNames()` to get all of them.
+     */
+    public function getName(): string
+    {
+        return $this->getNames()[0] ?? throw new CertificateException(
+            'Cannot get the name of the digital certificate.'
         );
     }
 
     /**
      * {@inheritDoc}
      */
-    public function getName(): string
+    public function getNames(): array
     {
-        $name = $this->getData()['subject']['CN'] ?? null;
-        if ($name === null) {
-            throw new CertificateException(
-                'Cannot get the name of the digital certificate (electronic signature).'
-            );
-        }
+        return $this->getValues($this->getData()['subject'], 'CN');
+    }
 
-        return $name;
+    /**
+     * {@inheritDoc}
+     *
+     * If the subject has several email addresses, the first one is returned.
+     * Use `getEmails()` to get all of them.
+     */
+    public function getEmail(): string
+    {
+        return $this->getEmails()[0] ?? throw new CertificateException(
+            'Cannot get the email of the digital certificate.'
+        );
     }
 
     /**
      * {@inheritDoc}
      */
-    public function getEmail(): string
+    public function getEmails(): array
     {
-        $email = $this->getData()['subject']['emailAddress'] ?? null;
-        if ($email === null) {
-            throw new CertificateException(
-                'Cannot get the email of the digital certificate (electronic signature).'
-            );
-        }
-
-        return $email;
+        return $this->getValues($this->getData()['subject'], 'emailAddress');
     }
 
     /**
@@ -367,10 +446,23 @@ final class Certificate implements CertificateInterface
 
     /**
      * {@inheritDoc}
+     *
+     * If the issuer has several CN, the first one is returned. Use
+     * `getIssuers()` to get all of them.
      */
     public function getIssuer(): string
     {
-        return $this->getData()['issuer']['CN'];
+        return $this->getIssuers()[0] ?? throw new CertificateException(
+            'Cannot get the issuer of the digital certificate.'
+        );
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getIssuers(): array
+    {
+        return $this->getValues($this->getData()['issuer'], 'CN');
     }
 
     /**
@@ -433,6 +525,8 @@ final class Certificate implements CertificateInterface
 
     /**
      * {@inheritDoc}
+     *
+     * @return array<string, mixed>
      */
     public function jsonSerialize(): array
     {

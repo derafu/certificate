@@ -19,46 +19,54 @@ use Derafu\Certificate\Exception\CertificateException;
 /**
  * Class that performs validations on the digital certificate.
  *
- * NOTE: This validation is to verify that the certificate can be used in an
- * application for electronic invoicing in Chile according to requirements of
- * the SII (Servicio de Impuestos Internos). If you need to validate a
- * certificate for another purpose, you must implement the
+ * It validates that the certificate has an ID, that the ID has the format that
+ * was configured (if any) and that the certificate is not expired. If you need
+ * to validate a certificate for another purpose, you must implement the
  * CertificateValidatorInterface interface with your own logic.
  */
 final class CertificateValidator implements CertificateValidatorInterface
 {
     /**
+     * Constructor.
+     *
+     * @param string|null $idFormat Regular expression (with delimiters) that
+     * the ID of the certificate must match. If it is `null`, the format of the
+     * ID is not validated.
+     * @throws CertificateException If the regular expression is not valid.
+     */
+    public function __construct(private readonly ?string $idFormat = null)
+    {
+        if ($idFormat !== null && @preg_match($idFormat, '') === false) {
+            throw new CertificateException([
+                'The ID format {format} is not a valid regular expression.',
+                'format' => $idFormat,
+            ]);
+        }
+    }
+
+    /**
      * {@inheritDoc}
      */
     public function validate(CertificateInterface $certificate): void
     {
-        // Validate that the ID (RUN) of the certificate is present.
-        $id = $certificate->getID(false);
+        // Validate that the ID of the certificate is present.
+        $id = $certificate->getId(false);
 
-        // Validate that the ID (RUN) contains a DV.
-        $dv = explode('-', $id)[1] ?? null;
-        if ($dv === null) {
-            throw new CertificateException(sprintf(
-                'The ID (RUN) %s of the certificate is not valid, it must include "-" (dash).',
-                $id
-            ));
-        }
-
-        // Validate that if the ID (RUN) ends with DV equal to "K", it is uppercase.
-        if ($dv === 'k') {
-            throw new CertificateException(sprintf(
-                'The RUN %s associated with the certificate is not valid, it ends with "k" (lowercase). It is recommended to acquire a new certificate and when purchasing it, verify that the "K" is uppercase. It is not possible to use a RUN that ends with "k" (lowercase) in the digital certificate (electronic signature). The provider of the certificate with the problem is %s.',
-                $id,
-                $certificate->getIssuer()
-            ));
+        // Validate that the ID has the format, if there is one.
+        if ($this->idFormat !== null && preg_match($this->idFormat, $id) !== 1) {
+            throw new CertificateException([
+                'The ID {id} of the certificate does not match the format {format}.',
+                'id' => $id,
+                'format' => $this->idFormat,
+            ]);
         }
 
         // Validate that the certificate is active (not expired).
         if (!$certificate->isActive()) {
-            throw new CertificateException(sprintf(
-                'The certificate expired on %s, it must use a valid certificate. If you do not have one, you must acquire it from an authorized provider by the SII.',
-                $certificate->getTo()
-            ));
+            throw new CertificateException([
+                'The certificate expired on {date}, it must use a valid certificate. If you do not have one, you must acquire it from an authorized provider.',
+                'date' => $certificate->getTo(),
+            ]);
         }
     }
 }

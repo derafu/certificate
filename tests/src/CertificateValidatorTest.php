@@ -15,6 +15,7 @@ namespace Derafu\TestsCertificate;
 use Derafu\Certificate\AsymmetricKeyHelper;
 use Derafu\Certificate\Certificate;
 use Derafu\Certificate\Contract\CertificateFakerInterface;
+use Derafu\Certificate\Contract\CertificateInterface;
 use Derafu\Certificate\Contract\CertificateValidatorInterface;
 use Derafu\Certificate\Exception\CertificateException;
 use Derafu\Certificate\SelfSignedCertificate;
@@ -22,6 +23,7 @@ use Derafu\Certificate\Service\CertificateFaker;
 use Derafu\Certificate\Service\CertificateLoader;
 use Derafu\Certificate\Service\CertificateValidator;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(CertificateValidator::class)]
@@ -33,6 +35,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(AsymmetricKeyHelper::class)]
 final class CertificateValidatorTest extends TestCase
 {
+    private const CHILEAN_ID_FORMAT = '/^\\d+-[\\dK]$/';
+
     private CertificateFakerInterface $faker;
 
     private CertificateValidatorInterface $validator;
@@ -51,10 +55,87 @@ final class CertificateValidatorTest extends TestCase
         $this->assertTrue($certificate->isActive());
     }
 
-    public function testInvalidCertificate(): void
+    public function testWithoutFormatAnyIdIsValid(): void
+    {
+        $this->expectNotToPerformAssertions();
+
+        $this->validator->validate($this->faker->createFake(id: '123'));
+        $this->validator->validate($this->faker->createFake(id: 'any id'));
+    }
+
+    /**
+     * The format of the ID is the one of the national ID of Chile (RUN): digits,
+     * a dash and a check character that is a digit or an uppercase "K".
+     */
+    #[DataProvider('validIdsProvider')]
+    public function testAnIdThatMatchesTheFormatIsValid(string $id): void
+    {
+        $this->expectNotToPerformAssertions();
+
+        $validator = new CertificateValidator(self::CHILEAN_ID_FORMAT);
+        $validator->validate($this->faker->createFake(id: $id));
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function validIdsProvider(): array
+    {
+        return [
+            'with a digit' => ['11222333-9'],
+            'with an uppercase K' => ['10-K'],
+            'short' => ['1-9'],
+        ];
+    }
+
+    #[DataProvider('invalidIdsProvider')]
+    public function testAnIdThatDoesNotMatchTheFormatIsNotValid(string $id): void
+    {
+        $certificate = $this->createStub(CertificateInterface::class);
+        $certificate->method('getId')->willReturn($id);
+        $validator = new CertificateValidator(self::CHILEAN_ID_FORMAT);
+
+        try {
+            $validator->validate($certificate);
+            $this->fail('It should have failed.');
+        } catch (CertificateException $e) {
+            $this->assertStringContainsString($id, $e->getMessage());
+            $this->assertStringContainsString(self::CHILEAN_ID_FORMAT, $e->getMessage());
+        }
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function invalidIdsProvider(): array
+    {
+        return [
+            'without dash' => ['123'],
+            'with a lowercase k' => ['10-k'],
+            'with letters' => ['abc-9'],
+            'with a long check' => ['10-99'],
+            'empty' => [''],
+        ];
+    }
+
+    public function testAnInvalidFormatIsRejectedWhenTheValidatorIsCreated(): void
     {
         $this->expectException(CertificateException::class);
-        $certificate = $this->faker->createFake(id: '123');
-        $this->validator->validate($certificate);
+        new CertificateValidator('/(unclosed');
+    }
+
+    public function testAnExpiredCertificateIsNotValid(): void
+    {
+        $certificate = $this->createStub(CertificateInterface::class);
+        $certificate->method('getId')->willReturn('11222333-9');
+        $certificate->method('isActive')->willReturn(false);
+        $certificate->method('getTo')->willReturn('2020-01-01T23:59:59');
+
+        try {
+            $this->validator->validate($certificate);
+            $this->fail('It should have failed.');
+        } catch (CertificateException $e) {
+            $this->assertStringContainsString('2020-01-01T23:59:59', $e->getMessage());
+        }
     }
 }

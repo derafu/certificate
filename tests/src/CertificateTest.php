@@ -15,6 +15,7 @@ namespace Derafu\TestsCertificate;
 use Derafu\Certificate\AsymmetricKeyHelper;
 use Derafu\Certificate\Certificate;
 use Derafu\Certificate\Contract\CertificateFakerInterface;
+use Derafu\Certificate\Contract\CertificateInterface;
 use Derafu\Certificate\Contract\CertificateLoaderInterface;
 use Derafu\Certificate\Exception\CertificateException;
 use Derafu\Certificate\SelfSignedCertificate;
@@ -178,10 +179,15 @@ final class CertificateTest extends TestCase
         $certificate = $this->faker->createFake();
 
         $bundle = $certificate->getCertificateBundle();
+        $leaf = $certificate->getCertificate();
+        $chain = $certificate->getCertificateChain()[0];
 
+        if ($leaf === '' || $chain === '') {
+            $this->fail('The certificate and its chain must not be empty.');
+        }
         $this->assertSame(2, substr_count($bundle, '-----BEGIN CERTIFICATE-----'));
-        $this->assertStringStartsWith($certificate->getCertificate(), $bundle);
-        $this->assertStringEndsWith($certificate->getCertificateChain()[0], $bundle);
+        $this->assertStringStartsWith($leaf, $bundle);
+        $this->assertStringEndsWith($chain, $bundle);
     }
 
     /**
@@ -199,5 +205,240 @@ final class CertificateTest extends TestCase
 
         $this->assertSame($original->getModulus(), $certificate->getModulus());
         $this->assertSame($original->getExponent(), $certificate->getExponent());
+    }
+
+    /**
+     * The fixture has repeated `CN`, `emailAddress` and `serialNumber` in the
+     * subject (and the same ones in the issuer), as the standard allows.
+     */
+    private function loadRepeatedFieldsCertificate(): CertificateInterface
+    {
+        return $this->loadFixture('repeated-fields');
+    }
+
+    /**
+     * Loads a certificate of `tests/fixtures/` (`<name>.cert.pem` and
+     * `<name>.key.pem`).
+     */
+    private function loadFixture(string $name): CertificateInterface
+    {
+        $dir = __DIR__ . '/../fixtures';
+
+        return $this->loader->loadFromKeys(
+            (string) file_get_contents($dir . '/' . $name . '.cert.pem'),
+            (string) file_get_contents($dir . '/' . $name . '.key.pem')
+        );
+    }
+
+    public function testPluralGettersReturnAllTheRepeatedValues(): void
+    {
+        $certificate = $this->loadRepeatedFieldsCertificate();
+
+        $this->assertSame(['11222333-9', '44555666-7'], $certificate->getIds());
+        $this->assertSame(['Ana Perez', 'Ana P.'], $certificate->getNames());
+        $this->assertSame(
+            ['ana@example.com', 'ana.p@example.com'],
+            $certificate->getEmails()
+        );
+        $this->assertSame(['Ana Perez', 'Ana P.'], $certificate->getIssuers());
+    }
+
+    public function testSingularGettersReturnTheFirstRepeatedValue(): void
+    {
+        $certificate = $this->loadRepeatedFieldsCertificate();
+
+        $this->assertSame('11222333-9', $certificate->getId());
+        $this->assertSame('Ana Perez', $certificate->getName());
+        $this->assertSame('ana@example.com', $certificate->getEmail());
+        $this->assertSame('Ana Perez', $certificate->getIssuer());
+    }
+
+    public function testPluralGettersReturnAListEvenWithASingleValue(): void
+    {
+        $certificate = $this->faker->createFake();
+
+        $this->assertSame(['11222333-9'], $certificate->getIds());
+        $this->assertSame(['Daniel Bot'], $certificate->getNames());
+        $this->assertSame(['daniel.bot@example.com'], $certificate->getEmails());
+        $this->assertSame(
+            ['Derafu Test Certificate Authority'],
+            $certificate->getIssuers()
+        );
+    }
+
+    public function testGetDataThrowsExceptionForInvalidCertificate(): void
+    {
+        $certificate = $this->loader->loadFromKeys('invalid', 'invalid');
+
+        $this->expectException(CertificateException::class);
+        $certificate->getData();
+    }
+
+    public function testGetPublicKeyDetailsThrowsExceptionForInvalidCertificate(): void
+    {
+        $certificate = $this->loader->loadFromKeys('invalid', 'invalid');
+
+        $this->expectException(CertificateException::class);
+        $certificate->getPublicKeyDetails();
+    }
+
+    public function testGetPrivateKeyDetailsThrowsExceptionForInvalidPrivateKey(): void
+    {
+        $certificate = $this->loader->loadFromKeys('invalid', 'invalid');
+
+        $this->expectException(CertificateException::class);
+        $certificate->getPrivateKeyDetails();
+    }
+
+    public function testSelfSignedCertificateThrowsExceptionForInvalidIssuer(): void
+    {
+        $selfSigned = (new SelfSignedCertificate())->setIssuer(C: 'CLX');
+
+        // OpenSSL also emits a PHP warning for the invalid country.
+        set_error_handler(static fn (): bool => true);
+        try {
+            $this->expectException(CertificateException::class);
+            $selfSigned->toPkcs12();
+        } finally {
+            restore_error_handler();
+        }
+    }
+
+    public function testSelfSignedCertificateThrowsExceptionForInvalidSubject(): void
+    {
+        $selfSigned = (new SelfSignedCertificate())->setSubject(C: 'CLX');
+
+        // OpenSSL also emits a PHP warning for the invalid country.
+        set_error_handler(static fn (): bool => true);
+        try {
+            $this->expectException(CertificateException::class);
+            $selfSigned->toPkcs12();
+        } finally {
+            restore_error_handler();
+        }
+    }
+
+    public function testGetIdFromTheSubjectAlternativeNameExtension(): void
+    {
+        // The certificate has no serialNumber, the ID is in the extension.
+        $certificate = $this->loadFixture('san-id');
+
+        $this->assertSame(['11222333-9'], $certificate->getIds());
+        $this->assertSame('11222333-9', $certificate->getId());
+    }
+
+    public function testGetIdThrowsExceptionWhenTheCertificateHasNoId(): void
+    {
+        $certificate = $this->loadFixture('ec-no-id');
+
+        $this->assertSame([], $certificate->getIds());
+        $this->expectException(CertificateException::class);
+        $certificate->getId();
+    }
+
+    public function testGetModulusThrowsExceptionForAKeyThatIsNotRsa(): void
+    {
+        $certificate = $this->loadFixture('ec-no-id');
+
+        $this->expectException(CertificateException::class);
+        $certificate->getModulus();
+    }
+
+    public function testGetExponentThrowsExceptionForAKeyThatIsNotRsa(): void
+    {
+        $certificate = $this->loadFixture('ec-no-id');
+
+        $this->expectException(CertificateException::class);
+        $certificate->getExponent();
+    }
+
+    public function testGetPrivateKeyThrowsExceptionWithoutPrivateKey(): void
+    {
+        $certificate = $this->loader->loadFromCertificate(
+            $this->faker->createFake()->getCertificate()
+        );
+
+        $this->expectException(CertificateException::class);
+        $certificate->getPrivateKey();
+    }
+
+    public function testTheCleanKeysHaveNoPemHeadersAndFooters(): void
+    {
+        $certificate = $this->loader->loadFromCertificate(
+            $this->faker->createFake()->getCertificate(),
+            [$this->faker->createFake()->getCertificate()]
+        );
+        $keys = $this->faker->createFake()->getKeys(true);
+
+        $this->assertStringNotContainsString('-----', $keys['cert']);
+        $this->assertStringNotContainsString('-----', (string) $keys['pkey']);
+        $this->assertStringNotContainsString('-----', $keys['chain'][0] ?? '');
+        $this->assertStringNotContainsString('-----', $certificate->getPublicKey(true));
+        $this->assertStringContainsString('-----BEGIN', $certificate->getPublicKey());
+        $this->assertStringNotContainsString('-----', $certificate->getCertificateChain(true)[0]);
+    }
+
+    public function testToArrayAndJsonSerializeHaveTheDataOfTheCertificate(): void
+    {
+        $certificate = $this->faker->createFake();
+
+        $array = $certificate->toArray();
+        $this->assertSame('11222333-9', $array['id']);
+        $this->assertSame('Daniel Bot', $array['name']);
+        $this->assertSame('daniel.bot@example.com', $array['email']);
+        $this->assertSame('Derafu Test Certificate Authority', $array['issuer']);
+        $this->assertTrue($array['isActive']);
+        $this->assertSame($certificate->getModulus(), $array['modulus']);
+        $this->assertSame($certificate->getExponent(), $array['exponent']);
+        $this->assertSame($certificate->getPrivateKey(), $array['pkey']);
+
+        $this->assertSame($array, $certificate->jsonSerialize());
+        $this->assertSame($array, json_decode((string) json_encode($certificate), true));
+    }
+
+    public function testToArrayOfACertificateWithoutPrivateKeyHasNoPrivateKey(): void
+    {
+        $certificate = $this->loader->loadFromCertificate(
+            $this->faker->createFake()->getCertificate()
+        );
+
+        $this->assertNull($certificate->toArray()['pkey']);
+        $this->assertNull($certificate->getKeys()['pkey']);
+    }
+
+    public function testACertificateWithPasswordCanBeCreated(): void
+    {
+        $certificate = $this->faker->createFake(password: 'another password');
+
+        $this->assertSame('11222333-9', $certificate->getId());
+    }
+
+    public function testACertificateWithoutExtensionsAndWithoutSerialNumberHasNoId(): void
+    {
+        $certificate = $this->loadFixture('no-extensions');
+
+        $this->assertSame([], $certificate->getIds());
+    }
+
+    public function testGetPrivateKeyDetails(): void
+    {
+        $details = $this->faker->createFake()->getPrivateKeyDetails();
+
+        $this->assertGreaterThan(0, $details['bits']);
+        $this->assertArrayHasKey('rsa', $details);
+    }
+
+    public function testSelfSignedCertificateThrowsExceptionForAnInvalidValidity(): void
+    {
+        $selfSigned = (new SelfSignedCertificate())->setValidity(-5);
+
+        // PHP also emits a warning: the days must be between 0 and a maximum.
+        set_error_handler(static fn (): bool => true);
+        try {
+            $this->expectException(CertificateException::class);
+            $selfSigned->toPkcs12();
+        } finally {
+            restore_error_handler();
+        }
     }
 }

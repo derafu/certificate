@@ -19,8 +19,7 @@ use Derafu\Certificate\Contract\CertificateServiceInterface;
 use Derafu\Certificate\Contract\CertificateValidatorInterface;
 
 /**
- * Service that manages everything related to digital certificates (aka:
- * electronic signatures).
+ * Service that manages everything related to digital certificates.
  */
 final class CertificateService implements CertificateServiceInterface
 {
@@ -44,9 +43,10 @@ final class CertificateService implements CertificateServiceInterface
     public function createFake(
         ?string $id = null,
         ?string $name = null,
-        ?string $email = null
+        ?string $email = null,
+        ?string $password = null
     ): CertificateInterface {
-        return $this->faker->createFake($id, $name, $email);
+        return $this->faker->createFake($id, $name, $email, $password);
     }
 
     /**

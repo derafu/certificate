@@ -23,9 +23,9 @@ interface CertificateInterface extends JsonSerializable
      * Returns the certificate, the trust chain and the private key.
      *
      * @param boolean $clean If the certificate content is cleaned.
-     * @return array Array with the indices: `cert`, `chain` and `pkey`.
-     * `pkey` will be `null` if the certificate has no private key
-     * associated.
+     * @return array{cert: string, pkey: string|null, chain: array<string>} Array
+     * with the indices: `cert`, `chain` and `pkey`. `pkey` will be `null` if the
+     * certificate has no private key associated.
      */
     public function getKeys(bool $clean = false): array;
 
@@ -105,7 +105,7 @@ interface CertificateInterface extends JsonSerializable
     /**
      * Returns the private key details.
      *
-     * @return array
+     * @return array{bits: int, key: string, rsa?: array<string, string>, dsa?: array<string, string>, dh?: array<string, string>, ec?: array<string, mixed>, type: int}
      */
     public function getPrivateKeyDetails(): array;
 
@@ -117,7 +117,7 @@ interface CertificateInterface extends JsonSerializable
      * with `loadFromCertificate()`), since the public key is always part of
      * the certificate itself.
      *
-     * @return array
+     * @return array{bits: int, key: string, rsa?: array<string, string>, dsa?: array<string, string>, dh?: array<string, string>, ec?: array<string, mixed>, type: int}
      */
     public function getPublicKeyDetails(): array;
 
@@ -126,7 +126,8 @@ interface CertificateInterface extends JsonSerializable
      *
      * Alias of getCertX509().
      *
-     * @return array Array with all the certificate data.
+     * @return array{name: string, subject: array<string, string|list<string>>, hash: string, issuer: array<string, string|list<string>>, version: int, serialNumber: string, serialNumberHex: string, validFrom: string, validTo: string, validFrom_time_t: int, validTo_time_t: int, signatureTypeSN: string, signatureTypeLN: string, signatureTypeNID: int, purposes: array<int, array{bool, bool, string}>, extensions?: array<string, string>}
+     * Array with all the certificate data.
      */
     public function getData(): array;
 
@@ -141,9 +142,11 @@ interface CertificateInterface extends JsonSerializable
     /**
      * Returns the ID associated with the certificate.
      *
-     * The ID is the RUN that must be in an extension, this is the standard.
-     * Also, it could be in the `serialNumber` field, some providers place it in
-     * this field, it is also easier for tests.
+     * The ID is the `serialNumber` field of the subject. If the subject has
+     * none, it is the one in the `subjectAltName` extension (`otherName`).
+     *
+     * If the certificate has several IDs, the first one is returned. Use
+     * `getIds()` to get all of them.
      *
      * @param bool $forceUpper If uppercase is forced.
      * @return string ID associated with the certificate in the format:
@@ -152,18 +155,50 @@ interface CertificateInterface extends JsonSerializable
     public function getId(bool $forceUpper = true): string;
 
     /**
+     * Returns all the IDs associated with the certificate.
+     *
+     * A field can be repeated in the certificate, so this always returns a
+     * list, even if there is only one ID. It is empty if there is none.
+     *
+     * @param bool $forceUpper If uppercase is forced.
+     * @return list<string> IDs in the format: 11222333-4.
+     */
+    public function getIds(bool $forceUpper = true): array;
+
+    /**
      * Returns the CN of the subject.
+     *
+     * If the subject has several CN, the first one is returned. Use
+     * `getNames()` to get all of them.
      *
      * @return string CN of the subject.
      */
     public function getName(): string;
 
     /**
+     * Returns all the CN of the subject.
+     *
+     * @return list<string> CN of the subject, empty if there is none.
+     */
+    public function getNames(): array;
+
+    /**
      * Returns the email address of the subject.
+     *
+     * If the subject has several email addresses, the first one is returned.
+     * Use `getEmails()` to get all of them.
      *
      * @return string Email address of the subject.
      */
     public function getEmail(): string;
+
+    /**
+     * Returns all the email addresses of the subject.
+     *
+     * @return list<string> Email addresses of the subject, empty if there is
+     * none.
+     */
+    public function getEmails(): array;
 
     /**
      * Returns from when the signature is valid.
@@ -208,9 +243,19 @@ interface CertificateInterface extends JsonSerializable
     /**
      * Returns the name of the issuer of the signature.
      *
+     * If the issuer has several CN, the first one is returned. Use
+     * `getIssuers()` to get all of them.
+     *
      * @return string CN of the issuer.
      */
     public function getIssuer(): string;
+
+    /**
+     * Returns all the CN of the issuer of the signature.
+     *
+     * @return list<string> CN of the issuer, empty if there is none.
+     */
+    public function getIssuers(): array;
 
     /**
      * Returns the modulus of the certificate's public key.
@@ -229,8 +274,9 @@ interface CertificateInterface extends JsonSerializable
     /**
      * Returns the certificate data as an array.
      *
-     * @return array Array with all the certificate data, including the
-     * indices `cert`, `chain` and `pkey` (see `getKeys()`).
+     * @return array{id: string, name: string, email: string, from: string, to: string, totalDays: int, expirationDays: int, isActive: bool, issuer: string, modulus: string, exponent: string, cert: string, chain: array<string>, pkey: string|null}
+     * Array with all the certificate data, including the indices `cert`,
+     * `chain` and `pkey` (see `getKeys()`).
      */
     public function toArray(): array;
 }

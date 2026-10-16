@@ -204,4 +204,69 @@ final class CertificateLoaderTest extends TestCase
         unset($certs['pkey']); // Delete the private key to simulate an invalid array.
         $this->loader->loadFromArray($certs);
     }
+
+    public function testCreateFromArrayThrowsExceptionForACertificateThatIsNotText(): void
+    {
+        $certs = $this->faker->createFake()->getKeys();
+        $certs['cert'] = 123;
+
+        $this->expectException(CertificateException::class);
+        $this->expectExceptionMessage('The certificate must be a text.');
+        $this->loader->loadFromArray($certs);
+    }
+
+    public function testCreateFromArrayThrowsExceptionForAPrivateKeyThatIsNotText(): void
+    {
+        $certs = $this->faker->createFake()->getKeys();
+        $certs['pkey'] = ['not', 'text'];
+
+        $this->expectException(CertificateException::class);
+        $this->expectExceptionMessage('The private key of the certificate must be a text.');
+        $this->loader->loadFromArray($certs);
+    }
+
+    public function testCreateFromArrayThrowsExceptionForAChainThatIsNotOnlyText(): void
+    {
+        $certs = $this->faker->createFake()->getKeys();
+        $certs['chain'] = ['text', 123];
+
+        $this->expectException(CertificateException::class);
+        $this->expectExceptionMessage('The chain of the certificate must contain only texts.');
+        $this->loader->loadFromArray($certs);
+    }
+
+    public function testCreateFromArrayThrowsExceptionForAChainThatIsNotAnArray(): void
+    {
+        $certs = $this->faker->createFake()->getKeys();
+        $certs['chain'] = 'text';
+
+        $this->expectException(CertificateException::class);
+        $this->expectExceptionMessage('The chain of the certificate must contain only texts.');
+        $this->loader->loadFromArray($certs);
+    }
+
+    public function testCreateFromArrayAcceptsAChainWithTextKeys(): void
+    {
+        $certs = $this->faker->createFake()->getKeys();
+        $certs['chain'] = ['ca' => $certs['cert']];
+
+        $certificate = $this->loader->loadFromArray($certs);
+
+        $this->assertCount(1, $certificate->getCertificateChain());
+    }
+
+    /**
+     * With empty data OpenSSL fails without leaving an error of its own, so
+     * the exception has the message and no errors.
+     */
+    public function testCreateFromDataThrowsExceptionForEmptyData(): void
+    {
+        try {
+            $this->loader->loadFromData('', 'password');
+            $this->fail('It should have failed.');
+        } catch (CertificateException $e) {
+            $this->assertSame('It was not possible to read the digital certificate data.', $e->getMessage());
+            $this->assertSame([], $e->getErrors());
+        }
+    }
 }

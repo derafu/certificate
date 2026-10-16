@@ -21,14 +21,17 @@ interface CertificateFakerInterface
     /**
      * Creates a self-signed digital certificate (fake) for testing.
      *
-     * @param string|null $id User identifier (RUN).
+     * @param string|null $id ID of the certificate.
      * @param string|null $name Name of the user of the certificate.
      * @param string|null $email Email of the user of the certificate.
+     * @param string|null $password Password that protects the private key of
+     * the certificate. If it is `null`, the default password is used.
      * @return CertificateInterface
      */
     public function createFake(
         ?string $id = null,
         ?string $name = null,
-        ?string $email = null
+        ?string $email = null,
+        ?string $password = null
     ): CertificateInterface;
 }
