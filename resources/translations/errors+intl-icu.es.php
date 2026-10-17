@@ -22,12 +22,6 @@ return [
     // Certificate.
     'The private key is not available in the certificate.' =>
         'La clave privada no está disponible en el certificado.',
-    'It was not possible to read the private key of the certificate.' =>
-        'No fue posible leer la clave privada del certificado.',
-    'It was not possible to read the public key of the certificate.' =>
-        'No fue posible leer la clave pública del certificado.',
-    'It was not possible to read the data of the certificate.' =>
-        'No fue posible leer los datos del certificado.',
     'Cannot get the ID of the digital certificate. It is recommended to verify the format and password of the certificate.' =>
         'No fue posible obtener el ID del certificado digital. Se recomienda verificar el formato y la contraseña del certificado.',
     'Cannot get the name of the digital certificate.' =>
@@ -44,21 +38,58 @@ return [
     'First install phpseclib3/phpseclib: composer require phpseclib/phpseclib' =>
         'Primero instale phpseclib3/phpseclib: composer require phpseclib/phpseclib',
 
+    // OpenSsl.
+    'OpenSSL could not generate the private key.' =>
+        'OpenSSL no pudo generar la clave privada.',
+    'OpenSSL could not read the private key.' =>
+        'OpenSSL no pudo leer la clave privada.',
+    'OpenSSL could not read the public key.' =>
+        'OpenSSL no pudo leer la clave pública.',
+    'OpenSSL could not read the details of the key.' =>
+        'OpenSSL no pudo leer los detalles de la clave.',
+    'OpenSSL could not read the data of the certificate.' =>
+        'OpenSSL no pudo leer los datos del certificado.',
+    'OpenSSL could not generate the certificate signing request.' =>
+        'OpenSSL no pudo generar la solicitud de firma del certificado.',
+    'OpenSSL could not sign the certificate signing request.' =>
+        'OpenSSL no pudo firmar la solicitud de firma del certificado.',
+    'OpenSSL could not read the PKCS#12.' =>
+        'OpenSSL no pudo leer el PKCS#12.',
+    'OpenSSL could not export the PKCS#12.' =>
+        'OpenSSL no pudo exportar el PKCS#12.',
+    'OpenSSL could not sign the data.' =>
+        'OpenSSL no pudo firmar los datos.',
+    'OpenSSL could not verify the signature.' =>
+        'OpenSSL no pudo verificar la firma.',
+
     // SelfSignedCertificate.
     'The CN, emailAddress and serialNumber are required.' =>
         'El CN, el emailAddress y el serialNumber son obligatorios.',
-    'It was not possible to generate the private key of the issuer of the certificate.' =>
-        'No fue posible generar la clave privada del emisor del certificado.',
-    'It was not possible to generate the CSR of the issuer of the certificate.' =>
-        'No fue posible generar el CSR del emisor del certificado.',
-    'It was not possible to generate the issuer certificate (CA).' =>
-        'No fue posible generar el certificado del emisor (CA).',
-    'It was not possible to generate the private key of the certificate.' =>
-        'No fue posible generar la clave privada del certificado.',
-    'It was not possible to generate the CSR of the certificate.' =>
-        'No fue posible generar el CSR del certificado.',
-    'It was not possible to generate the user certificate.' =>
-        'No fue posible generar el certificado del usuario.',
+    // OpenSsl: the errors of OpenSSL that are known (each one has its code).
+    'Unsupported encryption algorithm or method (Error #{code}).' =>
+        'Algoritmo o método de cifrado no soportado (Error #{code}).',
+    'MAC verification failed in PKCS12, certificate or password is incorrect (Error #{code}).' =>
+        'Falló la verificación MAC en el PKCS12, el certificado o la contraseña es incorrecta (Error #{code}).',
+    'Failed to load X.509 certificate (Error #{code}).' =>
+        'No fue posible cargar el certificado X.509 (Error #{code}).',
+    'Invalid PEM format (Error #{code}).' =>
+        'Formato PEM inválido (Error #{code}).',
+    'Key length not allowed (Error #{code}).' =>
+        'Largo de clave no permitido (Error #{code}).',
+    'Private key error: incorrect password (Error #{code}).' =>
+        'Error de clave privada: contraseña incorrecta (Error #{code}).',
+    'SSL layer error: invalid certificate or CA not known (Error #{code}).' =>
+        'Error de la capa SSL: certificado inválido o CA desconocida (Error #{code}).',
+    'SSL configuration error: certificate or key problem (Error #{code}).' =>
+        'Error de configuración SSL: problema con el certificado o la clave (Error #{code}).',
+    'Error in reading a certificate file (Error #{code}).' =>
+        'Error al leer un archivo de certificado (Error #{code}).',
+    'SSL error: incompatible protocol (Error #{code}).' =>
+        'Error SSL: protocolo incompatible (Error #{code}).',
+    // OpenSsl: any other error of OpenSSL, or a warning of PHP, as it is.
+    'OpenSSL: {text}' =>
+        'OpenSSL: {text}',
+
     // CertificateLoader.
     'It was not possible to read the digital certificate file from {path}' =>
         'No fue posible leer el archivo del certificado digital desde {path}',

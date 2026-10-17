@@ -20,10 +20,15 @@ use Derafu\Certificate\Exception\CertificateException;
 interface CertificateValidatorInterface
 {
     /**
-     * Performs different validations of the certificate.
+     * Validates that the certificate can be used.
      *
+     * A certificate that is not valid MUST be reported with a
+     * `CertificateException`. A certificate that is valid is not reported in
+     * any way.
+     *
+     * @param CertificateInterface $certificate Certificate to validate.
      * @return void
-     * @throws CertificateException
+     * @throws CertificateException If the certificate is not valid.
      */
     public function validate(CertificateInterface $certificate): void;
 }

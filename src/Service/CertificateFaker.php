@@ -15,6 +15,7 @@ namespace Derafu\Certificate\Service;
 use Derafu\Certificate\Contract\CertificateFakerInterface;
 use Derafu\Certificate\Contract\CertificateInterface;
 use Derafu\Certificate\Contract\CertificateLoaderInterface;
+use Derafu\Certificate\Contract\OpenSslInterface;
 use Derafu\Certificate\SelfSignedCertificate;
 
 /**
@@ -26,9 +27,11 @@ final class CertificateFaker implements CertificateFakerInterface
      * Constructor.
      *
      * @param CertificateLoaderInterface $loader
+     * @param OpenSslInterface $openSsl Service that calls OpenSSL.
      */
     public function __construct(
-        private readonly CertificateLoaderInterface $loader
+        private readonly CertificateLoaderInterface $loader,
+        private readonly OpenSslInterface $openSsl = new OpenSsl()
     ) {
     }
 
@@ -41,7 +44,7 @@ final class CertificateFaker implements CertificateFakerInterface
         ?string $email = null,
         ?string $password = null
     ): CertificateInterface {
-        $faker = new SelfSignedCertificate();
+        $faker = new SelfSignedCertificate($this->openSsl);
 
         $faker->setSubject(
             serialNumber: $id ?? '11222333-9',

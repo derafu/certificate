@@ -14,7 +14,9 @@ namespace Derafu\Certificate;
 
 use DateTime;
 use Derafu\Certificate\Contract\CertificateInterface;
+use Derafu\Certificate\Contract\OpenSslInterface;
 use Derafu\Certificate\Exception\CertificateException;
+use Derafu\Certificate\Service\OpenSsl;
 use phpseclib3\File\X509;
 
 /**
@@ -34,7 +36,7 @@ final class Certificate implements CertificateInterface
      * holder's certificate, in the order they were provided (subject's
      * issuer first).
      *
-     * @var string[]
+     * @var list<string>
      */
     private array $chain = [];
 
@@ -73,13 +75,15 @@ final class Certificate implements CertificateInterface
      * @param string|null $privateKey Private key associated with the
      * certificate.
      * @param string[] $chain Intermediate CA certificates that complete the
-     * trust chain of the certificate (as returned, for example, by
-     * `openssl_pkcs12_read()` in the `extracerts` index).
+     * trust chain of the certificate (for example, the additional certificates
+     * of a PKCS#12).
+     * @param OpenSslInterface $openSsl Service that calls OpenSSL.
      */
     public function __construct(
         string $certificate,
         ?string $privateKey = null,
-        array $chain = []
+        array $chain = [],
+        private readonly OpenSslInterface $openSsl = new OpenSsl()
     ) {
         $this->certificate = AsymmetricKeyHelper::normalizeCertificate(
             $certificate
@@ -183,15 +187,9 @@ final class Certificate implements CertificateInterface
     public function getPrivateKeyDetails(): array
     {
         if (!isset($this->privateKeyDetails)) {
-            $key = openssl_pkey_get_private($this->getPrivateKey());
-            $details = $key !== false ? openssl_pkey_get_details($key) : false;
-            if ($details === false) {
-                throw new CertificateException(
-                    'It was not possible to read the private key of the certificate.'
-                );
-            }
-            /** @var array{bits: int, key: string, rsa?: array<string, string>, dsa?: array<string, string>, dh?: array<string, string>, ec?: array<string, mixed>, type: int} $details */
-            $this->privateKeyDetails = $details;
+            $this->privateKeyDetails = $this->openSsl->pkeyGetDetails(
+                $this->openSsl->pkeyGetPrivate($this->getPrivateKey())
+            );
         }
 
         return $this->privateKeyDetails;
@@ -203,15 +201,9 @@ final class Certificate implements CertificateInterface
     public function getPublicKeyDetails(): array
     {
         if (!isset($this->publicKeyDetails)) {
-            $key = openssl_pkey_get_public($this->certificate);
-            $details = $key !== false ? openssl_pkey_get_details($key) : false;
-            if ($details === false) {
-                throw new CertificateException(
-                    'It was not possible to read the public key of the certificate.'
-                );
-            }
-            /** @var array{bits: int, key: string, rsa?: array<string, string>, dsa?: array<string, string>, dh?: array<string, string>, ec?: array<string, mixed>, type: int} $details */
-            $this->publicKeyDetails = $details;
+            $this->publicKeyDetails = $this->openSsl->pkeyGetDetails(
+                $this->openSsl->pkeyGetPublic($this->certificate)
+            );
         }
 
         return $this->publicKeyDetails;
@@ -223,14 +215,7 @@ final class Certificate implements CertificateInterface
     public function getData(): array
     {
         if (!isset($this->data)) {
-            $data = openssl_x509_parse($this->certificate);
-            if ($data === false) {
-                throw new CertificateException(
-                    'It was not possible to read the data of the certificate.'
-                );
-            }
-            /** @var array{name: string, subject: array<string, string|list<string>>, hash: string, issuer: array<string, string|list<string>>, version: int, serialNumber: string, serialNumberHex: string, validFrom: string, validTo: string, validFrom_time_t: int, validTo_time_t: int, signatureTypeSN: string, signatureTypeLN: string, signatureTypeNID: int, purposes: array<int, array{bool, bool, string}>, extensions?: array<string, string>} $data */
-            $this->data = $data;
+            $this->data = $this->openSsl->x509Parse($this->certificate);
         }
 
         return $this->data;
@@ -243,16 +228,12 @@ final class Certificate implements CertificateInterface
     {
         // Export the final certificate in PKCS#12 format, including the
         // trust chain (if any) so it can be recovered on a later load.
-        openssl_pkcs12_export(
+        return $this->openSsl->pkcs12Export(
             $this->getCertificate(),
-            $data,
             $this->getPrivateKey(),
             $password,
             $this->chain !== [] ? ['extracerts' => $this->chain] : []
         );
-
-        // Return the digital certificate data.
-        return $data;
     }
 
     /**

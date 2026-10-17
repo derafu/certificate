@@ -12,13 +12,13 @@ declare(strict_types=1);
 
 namespace Derafu\Certificate;
 
+use Derafu\Certificate\Contract\OpenSslInterface;
 use Derafu\Certificate\Exception\CertificateException;
-use OpenSSLAsymmetricKey;
-use OpenSSLCertificateSigningRequest;
+use Derafu\Certificate\Service\OpenSsl;
 
 /**
  * Class that generates self-signed certificates and returns them as a string of
- * data, an array or an instance of Certificate.
+ * data (PKCS#12) or as an array.
  */
 final class SelfSignedCertificate
 {
@@ -37,7 +37,7 @@ final class SelfSignedCertificate
     private array $issuer;
 
     /**
-     * Validity of the certificate in UNIX timestamp format.
+     * Validity of the certificate, in days.
      *
      * @var array{days: int}
      */
@@ -52,9 +52,12 @@ final class SelfSignedCertificate
 
     /**
      * Constructor that assigns the default values.
+     *
+     * @param OpenSslInterface $openSsl Service that calls OpenSSL.
      */
-    public function __construct()
-    {
+    public function __construct(
+        private readonly OpenSslInterface $openSsl = new OpenSsl()
+    ) {
         $this->setSubject();
         $this->setIssuer();
         $this->setValidity();
@@ -183,21 +186,11 @@ final class SelfSignedCertificate
         $days = $this->validity['days'];
 
         // Create private key and CSR for the issuer.
-        $issuerPrivateKey = openssl_pkey_new();
-        if (!$issuerPrivateKey instanceof OpenSSLAsymmetricKey) {
-            throw new CertificateException(
-                'It was not possible to generate the private key of the issuer of the certificate.'
-            );
-        }
-        $issuerCsr = openssl_csr_new($this->issuer, $issuerPrivateKey);
-        if (!$issuerCsr instanceof OpenSSLCertificateSigningRequest) {
-            throw new CertificateException(
-                'It was not possible to generate the CSR of the issuer of the certificate.'
-            );
-        }
+        $issuerPrivateKey = $this->openSsl->pkeyNew();
+        $issuerCsr = $this->openSsl->csrNew($this->issuer, $issuerPrivateKey);
 
         // Create self-signed certificate for the issuer (CA).
-        $issuerCert = openssl_csr_sign(
+        $issuerCert = $this->openSsl->csrSign(
             $issuerCsr,         // CSR of the issuer.
             null,               // Issuer certificate (null indicates that it is self-signed).
             $issuerPrivateKey,  // Private key of the issuer.
@@ -206,29 +199,12 @@ final class SelfSignedCertificate
             666                 // Serial number of the certificate.
         );
 
-        // Validate that the issuer certificate (CA) was generated.
-        if ($issuerCert === false) {
-            throw new CertificateException(
-                'It was not possible to generate the issuer certificate (CA).'
-            );
-        }
-
         // Create private key and CSR for the subject.
-        $subjectPrivateKey = openssl_pkey_new();
-        if (!$subjectPrivateKey instanceof OpenSSLAsymmetricKey) {
-            throw new CertificateException(
-                'It was not possible to generate the private key of the certificate.'
-            );
-        }
-        $subjectCsr = openssl_csr_new($this->subject, $subjectPrivateKey);
-        if (!$subjectCsr instanceof OpenSSLCertificateSigningRequest) {
-            throw new CertificateException(
-                'It was not possible to generate the CSR of the certificate.'
-            );
-        }
+        $subjectPrivateKey = $this->openSsl->pkeyNew();
+        $subjectCsr = $this->openSsl->csrNew($this->subject, $subjectPrivateKey);
 
         // Use the issuer certificate to sign the subject CSR.
-        $subjectCert = openssl_csr_sign(
+        $subjectCert = $this->openSsl->csrSign(
             $subjectCsr,        // The subject CSR.
             $issuerCert,        // Issuer certificate.
             $issuerPrivateKey,  // Private key of the issuer.
@@ -237,27 +213,16 @@ final class SelfSignedCertificate
             69                  // Serial number of the certificate.
         );
 
-        // Validate that the user certificate was generated.
-        if ($subjectCert === false) {
-            throw new CertificateException(
-                'It was not possible to generate the user certificate.'
-            );
-        }
-
         // Export the final certificate in PKCS#12 format, bundling the
         // issuer certificate (CA) as the trust chain. This mirrors what a
         // real accredited certification authority does when the issuer is
         // not a root CA trusted directly by every relying party.
-        openssl_pkcs12_export(
+        return $this->openSsl->pkcs12Export(
             $subjectCert,
-            $data,
             $subjectPrivateKey,
             $this->password,
             ['extracerts' => [$issuerCert]]
         );
-
-        // Return the digital certificate data.
-        return $data;
     }
 
     /**
@@ -268,10 +233,6 @@ final class SelfSignedCertificate
      */
     public function toArray(): array
     {
-        $data = $this->toPkcs12();
-        $array = [];
-        openssl_pkcs12_read($data, $array, $this->password);
-
-        return $array;
+        return $this->openSsl->pkcs12Read($this->toPkcs12(), $this->password);
     }
 }

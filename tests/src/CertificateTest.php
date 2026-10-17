@@ -21,9 +21,11 @@ use Derafu\Certificate\Exception\CertificateException;
 use Derafu\Certificate\SelfSignedCertificate;
 use Derafu\Certificate\Service\CertificateFaker;
 use Derafu\Certificate\Service\CertificateLoader;
+use Derafu\Certificate\Service\OpenSsl;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(OpenSsl::class)]
 #[CoversClass(Certificate::class)]
 #[CoversClass(CertificateException::class)]
 #[CoversClass(CertificateFaker::class)]
@@ -294,28 +296,16 @@ final class CertificateTest extends TestCase
     {
         $selfSigned = (new SelfSignedCertificate())->setIssuer(C: 'CLX');
 
-        // OpenSSL also emits a PHP warning for the invalid country.
-        set_error_handler(static fn (): bool => true);
-        try {
-            $this->expectException(CertificateException::class);
-            $selfSigned->toPkcs12();
-        } finally {
-            restore_error_handler();
-        }
+        $this->expectException(CertificateException::class);
+        $selfSigned->toPkcs12();
     }
 
     public function testSelfSignedCertificateThrowsExceptionForInvalidSubject(): void
     {
         $selfSigned = (new SelfSignedCertificate())->setSubject(C: 'CLX');
 
-        // OpenSSL also emits a PHP warning for the invalid country.
-        set_error_handler(static fn (): bool => true);
-        try {
-            $this->expectException(CertificateException::class);
-            $selfSigned->toPkcs12();
-        } finally {
-            restore_error_handler();
-        }
+        $this->expectException(CertificateException::class);
+        $selfSigned->toPkcs12();
     }
 
     public function testGetIdFromTheSubjectAlternativeNameExtension(): void
@@ -432,13 +422,7 @@ final class CertificateTest extends TestCase
     {
         $selfSigned = (new SelfSignedCertificate())->setValidity(-5);
 
-        // PHP also emits a warning: the days must be between 0 and a maximum.
-        set_error_handler(static fn (): bool => true);
-        try {
-            $this->expectException(CertificateException::class);
-            $selfSigned->toPkcs12();
-        } finally {
-            restore_error_handler();
-        }
+        $this->expectException(CertificateException::class);
+        $selfSigned->toPkcs12();
     }
 }

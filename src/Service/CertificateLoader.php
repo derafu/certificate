@@ -15,13 +15,25 @@ namespace Derafu\Certificate\Service;
 use Derafu\Certificate\Certificate;
 use Derafu\Certificate\Contract\CertificateInterface;
 use Derafu\Certificate\Contract\CertificateLoaderInterface;
+use Derafu\Certificate\Contract\OpenSslInterface;
 use Derafu\Certificate\Exception\CertificateException;
+use Derafu\Translation\TranslatableList;
 
 /**
  * Class that handles the configuration and loading of digital certificates.
  */
 final class CertificateLoader implements CertificateLoaderInterface
 {
+    /**
+     * Constructor.
+     *
+     * @param OpenSslInterface $openSsl Service that calls OpenSSL.
+     */
+    public function __construct(
+        private readonly OpenSslInterface $openSsl = new OpenSsl()
+    ) {
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -54,15 +66,16 @@ final class CertificateLoader implements CertificateLoaderInterface
         string $data,
         string $password
     ): CertificateInterface {
-        $certs = [];
-
-        if (openssl_pkcs12_read($data, $certs, $password) === false) {
-            $errors = CertificateException::opensslErrors();
+        try {
+            $certs = $this->openSsl->pkcs12Read($data, $password);
+        } catch (CertificateException $e) {
+            $errors = $e->getErrors();
 
             throw new CertificateException(
                 $errors === []
                     ? 'It was not possible to read the digital certificate data.'
-                    : ['It was not possible to read the digital certificate data. {errors}', 'errors' => implode(' ', $errors)],
+                    : ['It was not possible to read the digital certificate data. {errors}', 'errors' => TranslatableList::separated($errors)],
+                previous: $e,
                 errors: $errors
             );
         }
@@ -124,7 +137,7 @@ final class CertificateLoader implements CertificateLoaderInterface
         string $privateKey,
         array $chain = []
     ): CertificateInterface {
-        return new Certificate($certificate, $privateKey, $chain);
+        return new Certificate($certificate, $privateKey, $chain, $this->openSsl);
     }
 
     /**
@@ -134,6 +147,6 @@ final class CertificateLoader implements CertificateLoaderInterface
         string $certificate,
         array $chain = []
     ): CertificateInterface {
-        return new Certificate($certificate, null, $chain);
+        return new Certificate($certificate, null, $chain, $this->openSsl);
     }
 }

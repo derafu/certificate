@@ -14,7 +14,9 @@ namespace Derafu\TestsCertificate;
 
 use Derafu\Certificate\Exception\CertificateException;
 use Derafu\Certificate\Service\CertificateLoader;
+use Derafu\Certificate\Service\OpenSsl;
 use Derafu\Certificate\Translation\CertificateTranslationResourceProvider;
+use Derafu\Translation\TranslatableMessage;
 use Derafu\Translation\TranslatorFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
@@ -26,6 +28,7 @@ use Symfony\Component\Translation\Translator;
  * what it says is its message. What went wrong in detail (the errors of
  * OpenSSL) is data that it carries, not text that is added to the message.
  */
+#[CoversClass(OpenSsl::class)]
 #[CoversClass(CertificateException::class)]
 #[CoversClass(CertificateLoader::class)]
 #[CoversClass(CertificateTranslationResourceProvider::class)]
@@ -58,13 +61,19 @@ final class CertificateExceptionTest extends TestCase
 
     public function testTheErrorsAreDataAndNotPartOfTheMessage(): void
     {
-        $exception = new CertificateException('The certificate was not found.', errors: ['one', 'two']);
+        $one = new TranslatableMessage('OpenSSL: {text}', ['text' => 'one'], domain: 'errors');
+        $two = new TranslatableMessage('OpenSSL: {text}', ['text' => 'two'], domain: 'errors');
+        $exception = new CertificateException('The certificate was not found.', errors: [$one, $two]);
 
         $this->assertSame('The certificate was not found.', $exception->getMessage());
-        $this->assertSame(['one', 'two'], $exception->getErrors());
+        $this->assertSame([$one, $two], $exception->getErrors());
     }
 
-    public function testWithoutErrorsItTakesThePendingErrorsOfOpenssl(): void
+    /**
+     * The queue of errors of OpenSSL belongs to the process: an exception that
+     * was not given errors has none, whatever is in the queue.
+     */
+    public function testWithoutErrorsItDoesNotTakeTheErrorsThatAreInTheQueueOfOpenssl(): void
     {
         while (openssl_error_string() !== false) {
             // Empty the queue of errors of OpenSSL.
@@ -74,35 +83,13 @@ final class CertificateExceptionTest extends TestCase
 
         $exception = new CertificateException('The certificate was not found.');
 
-        $this->assertNotSame([], $exception->getErrors());
-        $this->assertSame('The certificate was not found.', $exception->getMessage());
-    }
-
-    public function testTheKnownErrorsOfOpensslAreTranslatedForHumans(): void
-    {
+        $this->assertSame([], $exception->getErrors());
+        // And it left the queue as it was.
+        $pending = openssl_error_string();
+        $this->assertIsString($pending);
         while (openssl_error_string() !== false) {
             // Empty the queue of errors of OpenSSL.
         }
-        @openssl_pkcs12_read('invalid', $certs, 'password');
-
-        // The error of OpenSSL is unknown, so it is as OpenSSL says it.
-        $unknown = CertificateException::opensslErrors();
-        $this->assertNotSame([], $unknown);
-        $this->assertStringContainsString('error:', $unknown[0]);
-
-        // A known one is replaced by its explanation and its code.
-        openssl_pkcs12_export(
-            (string) file_get_contents(__DIR__ . '/../fixtures/repeated-fields.cert.pem'),
-            $data,
-            (string) file_get_contents(__DIR__ . '/../fixtures/repeated-fields.key.pem'),
-            'password'
-        );
-        @openssl_pkcs12_read($data, $certs, 'wrong password');
-        $errors = CertificateException::opensslErrors();
-        $this->assertContains(
-            'MAC verification failed in PKCS12, certificate or password is incorrect (Error #11800071).',
-            $errors
-        );
     }
 
     public function testTheErrorsOfDataThatCanNotBeLoadedAreInTheMessageAndInTheErrors(): void
@@ -116,7 +103,55 @@ final class CertificateExceptionTest extends TestCase
                 'It was not possible to read the digital certificate data. ',
                 $e->getMessage()
             );
-            $this->assertStringContainsString($e->getErrors()[0], $e->getMessage());
+            $this->assertStringContainsString((string) $e->getErrors()[0], $e->getMessage());
+        }
+    }
+
+    /**
+     * The errors of OpenSSL that are known are translated, in the message and
+     * in the errors: the whole text is in the language of the translator, not
+     * the sentence in one language and the reason of the failure in another.
+     */
+    public function testTheKnownErrorsAreTranslatedInTheMessageAndInTheErrors(): void
+    {
+        $openSsl = new OpenSsl();
+        $key = $openSsl->pkeyNew();
+        $certificate = $openSsl->csrSign($openSsl->csrNew(['commonName' => 'Test'], $key), null, $key, 1, [], 1);
+        $pkcs12 = $openSsl->pkcs12Export($certificate, $key, 'right password');
+
+        try {
+            (new CertificateLoader())->loadFromData($pkcs12, 'wrong password');
+            $this->fail('It should have failed.');
+        } catch (CertificateException $e) {
+            $this->assertSame(
+                'No fue posible leer los datos del certificado digital. Falló la verificación MAC en el PKCS12, el certificado o la contraseña es incorrecta (Error #11800071).',
+                $e->trans($this->translator())
+            );
+            $this->assertSame(
+                'Falló la verificación MAC en el PKCS12, el certificado o la contraseña es incorrecta (Error #11800071).',
+                $e->getErrors()[0]->trans($this->translator())
+            );
+            $this->assertSame(
+                'It was not possible to read the digital certificate data. MAC verification failed in PKCS12, certificate or password is incorrect (Error #11800071).',
+                $e->getMessage()
+            );
+        }
+    }
+
+    /**
+     * An error of OpenSSL that is not known is the text of OpenSSL, that has no
+     * translation, and it is what it is: it is not changed.
+     */
+    public function testAnErrorThatIsNotKnownIsTheTextOfOpensslInAnyLanguage(): void
+    {
+        try {
+            (new CertificateLoader())->loadFromData('invalid', 'password');
+            $this->fail('It should have failed.');
+        } catch (CertificateException $e) {
+            $error = $e->getErrors()[0];
+
+            $this->assertSame('OpenSSL: error:0680008E:asn1 encoding routines::not enough data', (string) $error);
+            $this->assertSame((string) $error, $error->trans($this->translator()));
         }
     }
 }

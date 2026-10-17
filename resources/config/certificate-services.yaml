@@ -11,6 +11,10 @@ services:
         autoconfigure: true
         public: false
 
+    # Derafu OpenSSL Service (the only one that calls OpenSSL).
+    Derafu\Certificate\Contract\OpenSslInterface:
+        class: Derafu\Certificate\Service\OpenSsl
+
     # Derafu Certificate Service (entry point for the library).
     Derafu\Certificate\Contract\CertificateServiceInterface:
         class: Derafu\Certificate\Service\CertificateService

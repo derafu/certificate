@@ -22,10 +22,12 @@ use Derafu\Certificate\SelfSignedCertificate;
 use Derafu\Certificate\Service\CertificateFaker;
 use Derafu\Certificate\Service\CertificateLoader;
 use Derafu\Certificate\Service\CertificateValidator;
+use Derafu\Certificate\Service\OpenSsl;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(OpenSsl::class)]
 #[CoversClass(CertificateValidator::class)]
 #[CoversClass(Certificate::class)]
 #[CoversClass(CertificateException::class)]

@@ -20,12 +20,14 @@ use Derafu\Certificate\Service\CertificateFaker;
 use Derafu\Certificate\Service\CertificateLoader;
 use Derafu\Certificate\Service\CertificateService;
 use Derafu\Certificate\Service\CertificateValidator;
+use Derafu\Certificate\Service\OpenSsl;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
 /**
  * The service delegates in the faker, the loader and the validator.
  */
+#[CoversClass(OpenSsl::class)]
 #[CoversClass(CertificateService::class)]
 #[CoversClass(AsymmetricKeyHelper::class)]
 #[CoversClass(CertificateFaker::class)]

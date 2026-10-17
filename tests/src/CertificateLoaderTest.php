@@ -21,9 +21,11 @@ use Derafu\Certificate\Exception\CertificateException;
 use Derafu\Certificate\SelfSignedCertificate;
 use Derafu\Certificate\Service\CertificateFaker;
 use Derafu\Certificate\Service\CertificateLoader;
+use Derafu\Certificate\Service\OpenSsl;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(OpenSsl::class)]
 #[CoversClass(Certificate::class)]
 #[CoversClass(CertificateException::class)]
 #[CoversClass(CertificateFaker::class)]
@@ -68,9 +70,8 @@ final class CertificateLoaderTest extends TestCase
 
     /**
      * Ensures that the intermediate CA certificate bundled in the PKCS#12
-     * data (the `extracerts` index of `openssl_pkcs12_read()`) is preserved
-     * as the trust chain of the loaded certificate, instead of being
-     * silently discarded.
+     * data (its additional certificates) is preserved as the trust chain of
+     * the loaded certificate, instead of being silently discarded.
      */
     public function testCreateFromDataPreservesCertificateChain(): void
     {

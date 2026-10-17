@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 namespace Derafu\Certificate\Contract;
 
+use Derafu\Certificate\Exception\CertificateException;
 use JsonSerializable;
 
 /**
@@ -22,8 +23,9 @@ interface CertificateInterface extends JsonSerializable
     /**
      * Returns the certificate, the trust chain and the private key.
      *
-     * @param boolean $clean If the certificate content is cleaned.
-     * @return array{cert: string, pkey: string|null, chain: array<string>} Array
+     * @param bool $clean If the content of the keys is cleaned (headers and
+     * footers removed).
+     * @return array{cert: string, pkey: string|null, chain: list<string>} Array
      * with the indices: `cert`, `chain` and `pkey`. `pkey` will be `null` if the
      * certificate has no private key associated.
      */
@@ -53,13 +55,13 @@ interface CertificateInterface extends JsonSerializable
      * These are the certificates a TLS client (or any other relying party
      * that does not already trust the issuing CA directly) needs in order to
      * build the path from this certificate up to a trusted root. They come,
-     * for example, from the `extracerts` index of `openssl_pkcs12_read()`
-     * when the PKCS#12 file bundles them. If the PKCS#12/certificate did not
-     * include them, this returns an empty array.
+     * for example, from the additional certificates of a PKCS#12 file that
+     * bundles them. If the certificate was loaded without them, this returns an
+     * empty list.
      *
      * @param bool $clean If the certificate content is cleaned (headers and
      * footers removed) for each certificate in the chain.
-     * @return string[] Intermediate CA certificates, in the order provided
+     * @return list<string> Intermediate CA certificates, in the order provided
      * (subject's issuer first), empty if there is no chain.
      */
     public function getCertificateChain(bool $clean = false): array;
@@ -97,8 +99,11 @@ interface CertificateInterface extends JsonSerializable
     /**
      * Returns the private key.
      *
-     * @param bool $clean If the private key content is cleaned.
-     * @return string Private key content, in base64.
+     * @param bool $clean If the private key content is cleaned (headers and
+     * footers removed).
+     * @return string Private key content, in base64 (PEM without headers if
+     * `$clean` is `true`).
+     * @throws CertificateException If the certificate has no private key.
      */
     public function getPrivateKey(bool $clean = false): string;
 
@@ -124,18 +129,18 @@ interface CertificateInterface extends JsonSerializable
     /**
      * Returns the certificate data as an array.
      *
-     * Alias of getCertX509().
-     *
      * @return array{name: string, subject: array<string, string|list<string>>, hash: string, issuer: array<string, string|list<string>>, version: int, serialNumber: string, serialNumberHex: string, validFrom: string, validTo: string, validFrom_time_t: int, validTo_time_t: int, signatureTypeSN: string, signatureTypeLN: string, signatureTypeNID: int, purposes: array<int, array{bool, bool, string}>, extensions?: array<string, string>}
      * Array with all the certificate data.
      */
     public function getData(): array;
 
     /**
-     * Returns the certificate data as a string in PKCS #12 format.
+     * Returns the certificate, its private key and its trust chain (if it has
+     * one) as a PKCS#12.
      *
-     * @param string $password
-     * @return string
+     * @param string $password Password that protects the PKCS#12.
+     * @return string Content of the PKCS#12.
+     * @throws CertificateException If the certificate has no private key.
      */
     public function getPkcs12(string $password): string;
 
@@ -201,47 +206,48 @@ interface CertificateInterface extends JsonSerializable
     public function getEmails(): array;
 
     /**
-     * Returns from when the signature is valid.
+     * Returns from when the certificate is valid.
      *
-     * @return string Date and time from when the signature is valid.
+     * @return string Date and time from when the certificate is valid.
      */
     public function getFrom(): string;
 
     /**
-     * Returns until when the signature is valid.
+     * Returns until when the certificate is valid.
      *
-     * @return string Date and time until when the signature is valid.
+     * @return string Date and time until when the certificate is valid.
      */
     public function getTo(): string;
 
     /**
-     * Returns the total days that the signature is valid.
+     * Returns the total days that the certificate is valid.
      *
-     * @return int Total days that the signature is valid.
+     * @return int Total days that the certificate is valid.
      */
     public function getTotalDays(): int;
 
     /**
-     * Returns the days that are left to expire the signature.
+     * Returns the days that are left to expire the certificate.
      *
      * @param string|null $from Date from which the calculation is made.
-     * @return int Days that are left to expire the signature.
+     * @return int Days that are left to expire the certificate.
      */
     public function getExpirationDays(?string $from = null): int;
 
     /**
-     * Indicates if the signature is active or expired.
+     * Indicates if the certificate is active or expired.
      *
-     * NOTE: This method will also validate that the signature is not active in
-     * the future. That is, the date from when it is active must be in the past.
+     * NOTE: This method will also validate that the certificate is not valid
+     * only in the future. That is, the date from when it is valid must be in the
+     * past.
      *
      * @param string|null $when Date from which the validation is made.
-     * @return bool `true` if the signature is active, `false` if it is expired.
+     * @return bool `true` if the certificate is active, `false` if it is expired.
      */
     public function isActive(?string $when = null): bool;
 
     /**
-     * Returns the name of the issuer of the signature.
+     * Returns the name of the issuer of the certificate.
      *
      * If the issuer has several CN, the first one is returned. Use
      * `getIssuers()` to get all of them.
@@ -251,7 +257,7 @@ interface CertificateInterface extends JsonSerializable
     public function getIssuer(): string;
 
     /**
-     * Returns all the CN of the issuer of the signature.
+     * Returns all the CN of the issuer of the certificate.
      *
      * @return list<string> CN of the issuer, empty if there is none.
      */
@@ -260,6 +266,7 @@ interface CertificateInterface extends JsonSerializable
     /**
      * Returns the modulus of the certificate's public key.
      *
+     * @param int $wordwrap Length to which each line of the result is left.
      * @return string Modulus in base64.
      */
     public function getModulus(int $wordwrap = 64): string;
@@ -267,6 +274,7 @@ interface CertificateInterface extends JsonSerializable
     /**
      * Returns the public exponent of the certificate's public key.
      *
+     * @param int $wordwrap Length to which each line of the result is left.
      * @return string Public exponent in base64.
      */
     public function getExponent(int $wordwrap = 64): string;
@@ -274,7 +282,7 @@ interface CertificateInterface extends JsonSerializable
     /**
      * Returns the certificate data as an array.
      *
-     * @return array{id: string, name: string, email: string, from: string, to: string, totalDays: int, expirationDays: int, isActive: bool, issuer: string, modulus: string, exponent: string, cert: string, chain: array<string>, pkey: string|null}
+     * @return array{id: string, name: string, email: string, from: string, to: string, totalDays: int, expirationDays: int, isActive: bool, issuer: string, modulus: string, exponent: string, cert: string, chain: list<string>, pkey: string|null}
      * Array with all the certificate data, including the indices `cert`,
      * `chain` and `pkey` (see `getKeys()`).
      */

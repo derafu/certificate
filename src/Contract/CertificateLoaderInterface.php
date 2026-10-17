@@ -40,9 +40,8 @@ interface CertificateLoaderInterface
      * Creates a Certificate instance from a string that contains the digital
      * certificate in PKCS#12 format.
      *
-     * If the PKCS#12 data bundles intermediate CA certificates (the
-     * `extracerts` index of `openssl_pkcs12_read()`), they are preserved as
-     * the trust chain of the resulting Certificate (see
+     * If the PKCS#12 data bundles intermediate CA certificates (its additional
+     * certificates), they are preserved as the trust chain of the resulting Certificate (see
      * `CertificateInterface::getCertificateChain()`).
      *
      * @param string $data String that contains the certificate data in PKCS#12
