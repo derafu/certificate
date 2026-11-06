@@ -95,6 +95,8 @@ final class OpenSsl implements OpenSslInterface
             throw new CertificateException('OpenSSL could not read the details of the key.', errors: $errors);
         }
 
+        // The @var gives the shape that PHP documents for the details of a key:
+        // PHPStan only knows that openssl_pkey_get_details() returns an array.
         /** @var array{bits: int, key: string, rsa?: array<string, string>, dsa?: array<string, string>, dh?: array<string, string>, ec?: array<string, mixed>, type: int} */
         return $details;
     }
@@ -111,6 +113,8 @@ final class OpenSsl implements OpenSslInterface
             throw new CertificateException('OpenSSL could not read the data of the certificate.', errors: $errors);
         }
 
+        // The @var gives the shape that PHP documents for the parsed certificate:
+        // PHPStan only knows that openssl_x509_parse() returns an array.
         /** @var array{name: string, subject: array<string, string|list<string>>, hash: string, issuer: array<string, string|list<string>>, version: int, serialNumber: string, serialNumberHex: string, validFrom: string, validTo: string, validFrom_time_t: int, validTo_time_t: int, signatureTypeSN: string, signatureTypeLN: string, signatureTypeNID: int, purposes: array<int, array{bool, bool, string}>, extensions?: array<string, string>} */
         return $data;
     }
@@ -178,6 +182,9 @@ final class OpenSsl implements OpenSslInterface
             throw new CertificateException('OpenSSL could not read the PKCS#12.', errors: $errors);
         }
 
+        // The @var gives the shape that PHP documents for the PKCS#12 read:
+        // PHPStan does not type the output that openssl_pkcs12_read() writes
+        // in $certificates, so it is mixed.
         /** @var array{cert: string, pkey: string, extracerts?: list<string>} */
         return $certificates;
     }
@@ -204,6 +211,10 @@ final class OpenSsl implements OpenSslInterface
             throw new CertificateException('OpenSSL could not export the PKCS#12.', errors: $errors);
         }
 
+        // The @var is not a check: $output starts as '' and openssl_pkcs12_export()
+        // only replaces it with another string, so it is always a string here.
+        // PHPStan does not type the output of that function, so it is mixed.
+        /** @var string */
         return $output;
     }
 
@@ -225,6 +236,10 @@ final class OpenSsl implements OpenSslInterface
             throw new CertificateException('OpenSSL could not sign the data.', errors: $errors);
         }
 
+        // The @var is not a check: $signature starts as '' and openssl_sign()
+        // only replaces it with another string, so it is always a string here.
+        // PHPStan does not type the output of that function, so it is mixed.
+        /** @var string */
         return $signature;
     }
 

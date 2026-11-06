@@ -60,6 +60,7 @@ final class OpenSslTest extends TestCase
     private function selfSignedCertificate(OpenSSLAsymmetricKey $key): OpenSSLCertificate
     {
         $csr = openssl_csr_new(['commonName' => 'Test'], $key);
+        $this->assertInstanceOf(OpenSSLAsymmetricKey::class, $key);
         $this->assertInstanceOf(OpenSSLCertificateSigningRequest::class, $csr);
         $certificate = openssl_csr_sign($csr, null, $key, 1, [], 1);
         $this->assertInstanceOf(OpenSSLCertificate::class, $certificate);
@@ -78,6 +79,8 @@ final class OpenSslTest extends TestCase
         $certificate = $this->selfSignedCertificate($key);
         openssl_pkey_export($key, $privateKey);
         openssl_x509_export($certificate, $pem);
+        $this->assertIsString($privateKey);
+        $this->assertIsString($pem);
 
         $signature = $this->openSsl->sign('hello', $privateKey, OPENSSL_ALGO_SHA1);
 
@@ -91,6 +94,8 @@ final class OpenSslTest extends TestCase
         $certificate = $this->selfSignedCertificate($key);
         openssl_pkey_export($key, $privateKey);
         openssl_x509_export($certificate, $pem);
+        $this->assertIsString($privateKey);
+        $this->assertIsString($pem);
 
         $this->assertArrayHasKey('bits', $this->openSsl->pkeyGetDetails($this->openSsl->pkeyGetPrivate($privateKey)));
         $this->assertArrayHasKey('key', $this->openSsl->pkeyGetDetails($this->openSsl->pkeyGetPublic($pem)));
@@ -131,6 +136,7 @@ final class OpenSslTest extends TestCase
         $key = $this->openSsl->pkeyNew();
         $certificate = $this->selfSignedCertificate($key);
         openssl_x509_export($certificate, $pem);
+        $this->assertIsString($pem);
         $signature = $this->openSsl->sign('hello', $this->privateKey($key), OPENSSL_ALGO_SHA256);
 
         // A signature that is not valid is a result, not an exception, and
@@ -143,6 +149,7 @@ final class OpenSslTest extends TestCase
     private function privateKey(OpenSSLAsymmetricKey $key): string
     {
         openssl_pkey_export($key, $privateKey);
+        $this->assertIsString($privateKey);
 
         return $privateKey;
     }
