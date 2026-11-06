@@ -449,6 +449,68 @@ final class Certificate implements CertificateInterface
     /**
      * {@inheritDoc}
      */
+    public function getSerialNumber(): string
+    {
+        // OpenSSL gives a serial number that is larger than an integer as
+        // hexadecimal (`0x...`) and the other ones as decimal: it is always the
+        // hexadecimal one that is converted.
+        $digits = [0];
+        foreach (str_split($this->getData()['serialNumberHex']) as $hex) {
+            $carry = intval($hex, 16);
+            foreach ($digits as $i => $digit) {
+                $value = $digit * 16 + $carry;
+                $digits[$i] = $value % 10;
+                $carry = intdiv($value, 10);
+            }
+            for (; $carry > 0; $carry = intdiv($carry, 10)) {
+                $digits[] = $carry % 10;
+            }
+        }
+
+        return implode('', array_reverse($digits));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getFingerprint(string $algorithm = 'sha256', bool $binary = false): string
+    {
+        if (!in_array($algorithm, hash_algos(), true)) {
+            throw new CertificateException([
+                'The hash algorithm "{algorithm}" is not supported.',
+                'algorithm' => $algorithm,
+            ]);
+        }
+
+        return hash($algorithm, $this->getDer(), $binary);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getIssuerDn(): string
+    {
+        return DistinguishedName::issuerOf($this->getDer());
+    }
+
+    /**
+     * Returns the DER of the certificate.
+     *
+     * @throws CertificateException If the certificate is not base64.
+     */
+    private function getDer(): string
+    {
+        $der = base64_decode((string) preg_replace('/\s+/', '', $this->getCertificate(true)), true);
+        if ($der === false || $der === '') {
+            throw new CertificateException('The certificate could not be read as DER.');
+        }
+
+        return $der;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     public function getModulus(int $wordwrap = 64): string
     {
         $modulus = $this->getPublicKeyDetails()['rsa']['n'] ?? null;

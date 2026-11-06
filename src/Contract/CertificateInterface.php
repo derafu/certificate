@@ -264,6 +264,43 @@ interface CertificateInterface extends JsonSerializable
     public function getIssuers(): array;
 
     /**
+     * Returns the serial number of the certificate, as its issuer assigned it.
+     *
+     * @return string The number, in decimal (it can be larger than an integer
+     * of PHP).
+     * @throws CertificateException If the data of the certificate can not be
+     * read.
+     */
+    public function getSerialNumber(): string;
+
+    /**
+     * Returns the fingerprint of the certificate: the hash of its DER.
+     *
+     * @param string $algorithm Name of the hash algorithm (`sha1`, `sha256`,
+     * ...), one of `hash_algos()`.
+     * @param bool $binary Whether the fingerprint is the raw bytes of the hash
+     * instead of its hexadecimal text.
+     * @return string The fingerprint.
+     * @throws CertificateException If the algorithm is not supported or the
+     * certificate can not be read.
+     */
+    public function getFingerprint(string $algorithm = 'sha256', bool $binary = false): string;
+
+    /**
+     * Returns the distinguished name of the issuer of the certificate, as RFC
+     * 4514 writes it (`CN=Authority,O=Company,C=CL`: the attributes in the
+     * inverse order to the one of the certificate, and the ones without a name
+     * in the RFC with their OID and their value in hexadecimal).
+     *
+     * It is the name that identifies the issuer with the serial number (see
+     * `getSerialNumber()`). `getIssuer()` is only its common name.
+     *
+     * @return string The name of the issuer.
+     * @throws CertificateException If the certificate can not be read.
+     */
+    public function getIssuerDn(): string;
+
+    /**
      * Returns the modulus of the certificate's public key.
      *
      * @param int $wordwrap Length to which each line of the result is left.

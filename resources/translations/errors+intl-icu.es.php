@@ -114,4 +114,12 @@ return [
         'El ID {id} del certificado no coincide con el formato {format}.',
     'The certificate expired on {date}, it must use a valid certificate. If you do not have one, you must acquire it from an authorized provider.' =>
         'El certificado venció el {date}, debe usar un certificado válido. Si no tiene uno, debe adquirirlo en un proveedor autorizado.',
+    // Certificate: serial number, fingerprint and issuer.
+    'The hash algorithm "{algorithm}" is not supported.' =>
+        'El algoritmo de hash "{algorithm}" no está soportado.',
+    'The certificate could not be read as DER.' =>
+        'No fue posible leer el certificado como DER.',
+    // DistinguishedName.
+    'The distinguished name of the certificate could not be read.' =>
+        'No fue posible leer el nombre distinguido del certificado.',
 ];
