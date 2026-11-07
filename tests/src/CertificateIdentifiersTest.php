@@ -189,6 +189,27 @@ final class CertificateIdentifiersTest extends TestCase
         }
     }
 
+    public function testTheIssuerIsTheSameNameThatOpenSslWritesWithTheNamesOfTheAttributes(): void
+    {
+        foreach (['oasis-ubl', 'repeated-fields', 'no-extensions', 'san-id', 'ec-no-id'] as $fixture) {
+            $lines = [];
+            exec(
+                'openssl x509 -noout -issuer -nameopt RFC2253 -in ' . escapeshellarg(self::FIXTURES . $fixture . '.cert.pem') . ' 2>&1',
+                $lines,
+                $status
+            );
+            if ($status !== 0) {
+                $this->markTestSkipped('The openssl command is not installed.');
+            }
+
+            // `issuer=` and the name, written with the names that OpenSSL gives to the attributes.
+            $this->assertTrue(
+                DistinguishedName::equals((string) preg_replace('/^issuer=/', '', implode("\n", $lines)), $this->fixture($fixture)->getIssuerDn()),
+                $fixture
+            );
+        }
+    }
+
     public function testTheAttributesRepeatedInTheIssuerKeepTheirOrderAndTheOnesWithoutNameHaveTheirOid(): void
     {
         // CN, CN, emailAddress, emailAddress, serialNumber and serialNumber, as the

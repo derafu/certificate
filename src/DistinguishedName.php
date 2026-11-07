@@ -53,6 +53,29 @@ final class DistinguishedName
     ];
 
     /**
+     * The names that attributes have, by the OID that they are: the ones of RFC
+     * 4514 and the ones that other systems write.
+     *
+     * @var array<string, string>
+     */
+    private const array NAMES_TO_OID = [
+        'CN' => '2.5.4.3', 'COMMONNAME' => '2.5.4.3',
+        'SN' => '2.5.4.4', 'SURNAME' => '2.5.4.4',
+        'SERIALNUMBER' => '2.5.4.5',
+        'C' => '2.5.4.6', 'COUNTRYNAME' => '2.5.4.6',
+        'L' => '2.5.4.7', 'LOCALITYNAME' => '2.5.4.7',
+        'ST' => '2.5.4.8', 'S' => '2.5.4.8', 'SP' => '2.5.4.8', 'STATEORPROVINCENAME' => '2.5.4.8',
+        'STREET' => '2.5.4.9',
+        'O' => '2.5.4.10', 'ORGANIZATIONNAME' => '2.5.4.10',
+        'OU' => '2.5.4.11', 'ORGANIZATIONALUNITNAME' => '2.5.4.11',
+        'T' => '2.5.4.12', 'TITLE' => '2.5.4.12',
+        'GN' => '2.5.4.42', 'GIVENNAME' => '2.5.4.42',
+        'E' => '1.2.840.113549.1.9.1', 'EMAIL' => '1.2.840.113549.1.9.1', 'EMAILADDRESS' => '1.2.840.113549.1.9.1',
+        'DC' => '0.9.2342.19200300.100.1.25',
+        'UID' => '0.9.2342.19200300.100.1.1',
+    ];
+
+    /**
      * The encodings of the texts of a name, by the tag of its DER.
      *
      * @var array<int, string>
@@ -79,6 +102,74 @@ final class DistinguishedName
      */
     public static function issuerOf(string $der): string
     {
+        return self::name($der, self::locate($der)['issuer'][0]);
+    }
+
+    /**
+     * Gives the DER of the name of the issuer of a certificate, as the
+     * certificate has it.
+     *
+     * @param string $der The certificate, in DER.
+     * @throws CertificateException If it is not the DER of a certificate.
+     */
+    public static function issuerDerOf(string $der): string
+    {
+        [$start, $next] = self::locate($der)['issuer'];
+
+        return substr($der, $start, $next - $start);
+    }
+
+    /**
+     * Gives the DER of the serial number of a certificate (its `INTEGER`), as
+     * the certificate has it.
+     *
+     * @param string $der The certificate, in DER.
+     * @throws CertificateException If it is not the DER of a certificate.
+     */
+    public static function serialDerOf(string $der): string
+    {
+        [$start, $next] = self::locate($der)['serial'];
+
+        return substr($der, $start, $next - $start);
+    }
+
+    /**
+     * Indicates if two distinguished names written as text are the same name.
+     *
+     * The names are compared as the attributes that they have, not as the text:
+     * the case and the spaces of the values do not matter, the attributes can be
+     * written with their name (`CN`, `emailAddress`, `E`) or with their OID
+     * (`2.5.4.3`, `OID.2.5.4.3`), the values can be escaped with a backslash
+     * or in hexadecimal (`\2C`, `#0c01..`), the attributes can be separated by
+     * commas or semicolons, the attributes of a set (joined by `+`) are in any
+     * order, and the sets can be in the order of the certificate or in the
+     * inverse one (RFC 4514 and RFC 2253 write them inverted, other systems do
+     * not).
+     *
+     * @return bool `true` if they are the same name. A text that is not a name is
+     * not the same as anything.
+     */
+    public static function equals(string $first, string $second): bool
+    {
+        $first = self::parse($first);
+        $second = self::parse($second);
+        if ($first === null || $second === null) {
+            return false;
+        }
+
+        return $first === $second || $first === array_reverse($second);
+    }
+
+    /**
+     * Finds where the serial number and the issuer are in the DER of a
+     * certificate.
+     *
+     * @return array{serial: array{int, int}, issuer: array{int, int}} For each,
+     * where its element starts and where the next one starts.
+     * @throws CertificateException If it is not the DER of a certificate.
+     */
+    private static function locate(string $der): array
+    {
         // Certificate ::= SEQUENCE { tbsCertificate SEQUENCE { ... issuer ... } }.
         [$certificate] = self::enter($der, 0, self::SEQUENCE);
         [$offset, $end] = self::enter($der, $certificate, self::SEQUENCE);
@@ -88,13 +179,199 @@ final class DistinguishedName
         if (self::tagAt($der, $offset) === 0xA0) {
             $offset = self::read($der, $offset)[2];
         }
-        $offset = self::read($der, $offset)[2];
-        $offset = self::read($der, $offset)[2];
+        $serial = [$offset, self::read($der, $offset)[2]];
+        $offset = self::read($der, $serial[1])[2];
         if ($offset >= $end) {
             throw self::invalid();
         }
 
-        return self::name($der, $offset);
+        return ['serial' => $serial, 'issuer' => [$offset, self::read($der, $offset, self::SEQUENCE)[2]]];
+    }
+
+    /**
+     * Reads a name written as text.
+     *
+     * @return list<string>|null The attributes of each set, as `type=value`
+     * with the type as an OID when it is known and the value normalized, sorted
+     * inside each set; `null` if it is not a name.
+     */
+    private static function parse(string $name): ?array
+    {
+        if (trim($name) === '') {
+            return null;
+        }
+
+        $sets = [];
+        foreach (self::split($name, [',', ';']) as $set) {
+            $attributes = [];
+            foreach (self::split($set, ['+']) as $attribute) {
+                $position = self::firstUnescaped($attribute, '=');
+                if ($position === null) {
+                    return null;
+                }
+
+                $type = self::normalizeType(trim(substr($attribute, 0, $position)));
+                $value = self::normalizeValue(substr($attribute, $position + 1));
+                if ($type === '' || $value === null) {
+                    return null;
+                }
+                $attributes[] = $type . '=' . $value;
+            }
+            sort($attributes);
+            $sets[] = implode('+', $attributes);
+        }
+
+        return $sets;
+    }
+
+    /**
+     * Splits a text by some separators that are not escaped.
+     *
+     * @param list<string> $separators
+     * @return list<string>
+     */
+    private static function split(string $text, array $separators): array
+    {
+        $parts = [];
+        $current = '';
+        for ($i = 0, $length = strlen($text); $i < $length; $i++) {
+            $character = $text[$i];
+            if ($character === '\\' && $i + 1 < $length) {
+                $current .= $character . $text[++$i];
+            } elseif (in_array($character, $separators, true)) {
+                $parts[] = $current;
+                $current = '';
+            } else {
+                $current .= $character;
+            }
+        }
+        $parts[] = $current;
+
+        return $parts;
+    }
+
+    /**
+     * Gives the position of the first character that is not escaped.
+     */
+    private static function firstUnescaped(string $text, string $character): ?int
+    {
+        for ($i = 0, $length = strlen($text); $i < $length; $i++) {
+            if ($text[$i] === '\\') {
+                $i++;
+            } elseif ($text[$i] === $character) {
+                return $i;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Gives the type of an attribute as its OID if it is a name that is known.
+     */
+    private static function normalizeType(string $type): string
+    {
+        $type = strtoupper($type);
+        if (str_starts_with($type, 'OID.')) {
+            $type = substr($type, 4);
+        }
+
+        return self::NAMES_TO_OID[$type] ?? $type;
+    }
+
+    /**
+     * Gives the value of an attribute as the text that is compared: unescaped,
+     * without the spaces of its ends, with one space between words and in
+     * lower case.
+     *
+     * @return string|null `null` if the value is not valid.
+     */
+    private static function normalizeValue(string $value): ?string
+    {
+        $value = self::trimUnescaped($value);
+
+        if (str_starts_with($value, '#')) {
+            $der = ctype_xdigit(substr($value, 1)) && strlen($value) % 2 === 1 ? hex2bin(substr($value, 1)) : false;
+            if ($der === false) {
+                return null;
+            }
+            $text = self::textOfDer($der);
+        } else {
+            $text = self::unescape($value);
+            if ($text === null) {
+                return null;
+            }
+        }
+
+        return mb_strtolower((string) preg_replace('/\s+/u', ' ', trim($text)));
+    }
+
+    /**
+     * Removes the spaces of the ends of a value that are not escaped.
+     */
+    private static function trimUnescaped(string $value): string
+    {
+        $value = ltrim($value, ' ');
+        while (str_ends_with($value, ' ')) {
+            $slashes = strlen($value) - 1 - strlen(rtrim(substr($value, 0, -1), '\\'));
+            if ($slashes % 2 === 1) {
+                break;
+            }
+            $value = substr($value, 0, -1);
+        }
+
+        return $value;
+    }
+
+    /**
+     * Removes the backslashes of a value: `\,` is the character and `\2C` is
+     * the byte.
+     *
+     * @return string|null `null` if a backslash is at the end.
+     */
+    private static function unescape(string $value): ?string
+    {
+        $text = '';
+        for ($i = 0, $length = strlen($value); $i < $length; $i++) {
+            if ($value[$i] !== '\\') {
+                $text .= $value[$i];
+                continue;
+            }
+            if ($i + 1 >= $length) {
+                return null;
+            }
+            $next = $value[$i + 1];
+            if ($i + 2 < $length && ctype_xdigit($next) && ctype_xdigit($value[$i + 2])) {
+                $text .= pack('C', intval($next . $value[$i + 2], 16));
+                $i += 2;
+            } else {
+                $text .= $next;
+                $i++;
+            }
+        }
+
+        return $text;
+    }
+
+    /**
+     * Gives the text that the DER of a value has, or the DER in hexadecimal if
+     * it is not a text.
+     */
+    private static function textOfDer(string $der): string
+    {
+        try {
+            [$start, $end] = self::read($der, 0);
+            $encoding = self::TEXT_ENCODINGS[ord($der[0])] ?? null;
+        } catch (CertificateException) {
+            return '#' . bin2hex($der);
+        }
+        if ($encoding === null) {
+            return '#' . bin2hex($der);
+        }
+
+        $text = substr($der, $start, $end - $start);
+
+        return $encoding === 'UTF-8' || $encoding === 'ASCII' ? $text : mb_convert_encoding($text, 'UTF-8', $encoding);
     }
 
     /**

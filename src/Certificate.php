@@ -494,6 +494,14 @@ final class Certificate implements CertificateInterface
     }
 
     /**
+     * {@inheritDoc}
+     */
+    public function getIssuerSerialDer(): string
+    {
+        return IssuerSerial::derOf($this->getDer());
+    }
+
+    /**
      * Returns the DER of the certificate.
      *
      * @throws CertificateException If the certificate is not base64.

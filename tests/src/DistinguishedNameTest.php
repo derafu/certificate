@@ -287,4 +287,103 @@ final class DistinguishedNameTest extends TestCase
 
         $this->issuerOf($sets);
     }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function sameNameProvider(): array
+    {
+        return [
+            'the same text' => ['CN=a,O=b,C=CL', 'CN=a,O=b,C=CL'],
+            'in the inverse order' => ['CN=a,O=b,C=CL', 'C=CL,O=b,CN=a'],
+            'with another case and other spaces' => ['CN=Ana  Perez, O= Co ', 'cn=ana perez,o=co'],
+            'with spaces around the type and the equal sign' => ['CN = a , O = b', 'CN=a,O=b'],
+            'with the type written as its OID' => ['CN=a', '2.5.4.3=a'],
+            'with the type written as OID and its number' => ['CN=a', 'OID.2.5.4.3=a'],
+            'with the email as its name' => ['emailAddress=a@b.c', 'E=a@b.c'],
+            'with the email as its OID' => ['1.2.840.113549.1.9.1=a@b.c', 'emailAddress=a@b.c'],
+            'with the state as the names that other systems write' => ['ST=x', 'S=x'],
+            'with the state as another name' => ['SP=x', 'stateOrProvinceName=x'],
+            'with names that are long' => ['commonName=a,organizationName=b,organizationalUnitName=c,countryName=CL,localityName=d', 'CN=a,O=b,OU=c,C=CL,L=d'],
+            'with other names' => ['surname=a,givenName=b,title=c,serialNumber=1,street=d,dc=e,uid=f', 'SN=a,GN=b,T=c,2.5.4.5=1,STREET=d,DC=e,UID=f'],
+            'with an escaped comma written in hexadecimal' => ['CN=a\2Cb', 'CN=a\,b'],
+            'with the value as the DER of a text' => ['CN=#0c03612c62', 'CN=a\,b'],
+            'with the value as the DER of an IA5String' => ['1.2.840.113549.1.9.1=#1603612e62', 'E=a.b'],
+            'with a value that is not ASCII, in UTF-8 and escaped' => ['ST=Ñuñoa', 'ST=\C3\91u\C3\B1oa'],
+            'with another case of a value that is not ASCII' => ['ST=ÑUÑOA', 'ST=ñuñoa'],
+            'with the sets separated by semicolons' => ['CN=a;O=b', 'CN=a,O=b'],
+            'with the attributes of a set in another order' => ['CN=a+OU=b,O=c', 'OU=b+CN=a,O=c'],
+            'with a value that is not a text, in hexadecimal' => ['CN=#020105', 'CN=#020105'],
+            'with an unknown name' => ['FOO=a', 'foo=A'],
+            'with a space that is escaped at the end' => ['CN=a\ ', 'CN=a\ '],
+            // The spaces of the ends of a value are not significant when names are matched, escaped or not.
+            'with a space that is escaped at the end and one that is not' => ['CN=a\ ', 'CN=a'],
+            'with a space at the end, after an escaped backslash' => ['CN=a\\\\ ', 'CN=a\\\\'],
+            'with a value that is empty' => ['CN=', 'CN='],
+            'with an equal sign escaped in the type' => ['A\=B=c', 'a\=b=C'],
+        ];
+    }
+
+    #[DataProvider('sameNameProvider')]
+    public function testTheNamesThatAreWrittenInDifferentWaysAreTheSameName(string $first, string $second): void
+    {
+        $this->assertTrue(DistinguishedName::equals($first, $second));
+        $this->assertTrue(DistinguishedName::equals($second, $first));
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function differentNameProvider(): array
+    {
+        return [
+            'with another value' => ['CN=a,O=b', 'CN=a,O=c'],
+            'with another attribute' => ['CN=a,O=b', 'CN=a,OU=b'],
+            'with another number of attributes' => ['CN=a,O=b', 'CN=a'],
+            'with the sets in an order that is not the inverse one' => ['CN=a,O=b,C=CL', 'O=b,CN=a,C=CL'],
+            'with a set that is not the one of another' => ['CN=a+OU=b', 'CN=a,OU=b'],
+            'with an unknown name that is another' => ['FOO=a', 'BAR=a'],
+            'with a value that is not a text and is another' => ['CN=#020105', 'CN=#020106'],
+            'with the DER of a text that is another' => ['CN=#0c0161', 'CN=b'],
+        ];
+    }
+
+    #[DataProvider('differentNameProvider')]
+    public function testTheNamesThatHaveAnotherAttributeAreNotTheSameName(string $first, string $second): void
+    {
+        $this->assertFalse(DistinguishedName::equals($first, $second));
+        $this->assertFalse(DistinguishedName::equals($second, $first));
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function notANameProvider(): array
+    {
+        return [
+            'empty' => [''],
+            'only spaces' => ['   '],
+            'an attribute without equal sign' => ['CN'],
+            'a set without equal sign' => ['CN=a,O'],
+            'an attribute without type' => ['=a'],
+            'a backslash at the end' => ['CN=a\\'],
+            'a value in hexadecimal that is not' => ['CN=#zz'],
+            'a value in hexadecimal that is odd' => ['CN=#123'],
+            'a number sign alone' => ['CN=#'],
+        ];
+    }
+
+    #[DataProvider('notANameProvider')]
+    public function testATextThatIsNotANameIsNotTheSameAsAnything(string $text): void
+    {
+        $this->assertFalse(DistinguishedName::equals($text, $text));
+        $this->assertFalse(DistinguishedName::equals($text, 'CN=a'));
+        $this->assertFalse(DistinguishedName::equals('CN=a', $text));
+    }
+
+    public function testAValueInHexadecimalThatIsNotACompleteDerIsComparedAsItIs(): void
+    {
+        $this->assertTrue(DistinguishedName::equals('CN=#0c05', 'CN=#0c05'));
+        $this->assertFalse(DistinguishedName::equals('CN=#0c05', 'CN=#0c06'));
+    }
 }

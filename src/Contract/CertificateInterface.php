@@ -301,6 +301,18 @@ interface CertificateInterface extends JsonSerializable
     public function getIssuerDn(): string;
 
     /**
+     * Returns the DER of the `IssuerSerial` of the certificate (RFC 5035): its
+     * issuer, as a `GeneralNames` with a `directoryName`, and its serial
+     * number, both as the certificate has them.
+     *
+     * It is what the `IssuerSerialV2` of XAdES has, in base64.
+     *
+     * @return string The DER, as raw bytes.
+     * @throws CertificateException If the certificate can not be read.
+     */
+    public function getIssuerSerialDer(): string;
+
+    /**
      * Returns the modulus of the certificate's public key.
      *
      * @param int $wordwrap Length to which each line of the result is left.
