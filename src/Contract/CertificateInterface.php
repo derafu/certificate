@@ -331,7 +331,7 @@ interface CertificateInterface extends JsonSerializable
     /**
      * Returns the certificate data as an array.
      *
-     * @return array{id: string, name: string, email: string, from: string, to: string, totalDays: int, expirationDays: int, isActive: bool, issuer: string, modulus: string, exponent: string, cert: string, chain: list<string>, pkey: string|null}
+     * @return array{id: string, name: string, email: string, from: string, to: string, total_days: int, expiration_days: int, is_active: bool, issuer: string, modulus: string, exponent: string, cert: string, chain: list<string>, pkey: string|null}
      * Array with all the certificate data, including the indices `cert`,
      * `chain` and `pkey` (see `getKeys()`).
      */

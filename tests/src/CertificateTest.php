@@ -373,11 +373,29 @@ final class CertificateTest extends TestCase
         $certificate = $this->faker->createFake();
 
         $array = $certificate->toArray();
+        $this->assertSame([
+            'id',
+            'name',
+            'email',
+            'from',
+            'to',
+            'total_days',
+            'expiration_days',
+            'is_active',
+            'issuer',
+            'modulus',
+            'exponent',
+            'cert',
+            'chain',
+            'pkey',
+        ], array_keys($array));
         $this->assertSame('11222333-9', $array['id']);
         $this->assertSame('Daniel Bot', $array['name']);
         $this->assertSame('daniel.bot@example.com', $array['email']);
         $this->assertSame('Derafu Test Certificate Authority', $array['issuer']);
-        $this->assertTrue($array['isActive']);
+        $this->assertSame($certificate->getTotalDays(), $array['total_days']);
+        $this->assertSame($certificate->getExpirationDays(), $array['expiration_days']);
+        $this->assertTrue($array['is_active']);
         $this->assertSame($certificate->getModulus(), $array['modulus']);
         $this->assertSame($certificate->getExponent(), $array['exponent']);
         $this->assertSame($certificate->getPrivateKey(), $array['pkey']);
