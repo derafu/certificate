@@ -154,4 +154,9 @@ final class CertificateExceptionTest extends TestCase
             $this->assertSame((string) $error, $error->trans($this->translator()));
         }
     }
+
+    public function testTheDefaultCodeIsZero(): void
+    {
+        $this->assertSame(0, (new CertificateException('Failed.'))->getCode());
+    }
 }

@@ -280,4 +280,119 @@ final class CertificateIdentifiersTest extends TestCase
 
         $certificate->getFingerprint();
     }
+
+    /**
+     * The ID is the serial number of the subject without the spaces and without
+     * the zeros that go first, and in capital letters unless it is asked to be
+     * left as it is.
+     */
+    public function testTheIdsAreWithoutSpacesAndLeadingZerosAndInCapitalLettersByDefault(): void
+    {
+        $certificate = $this->selfSigned(['commonName' => 'x', 'serialNumber' => '0012-k '], 5);
+
+        $this->assertSame(['12-K'], $certificate->getIds());
+        $this->assertSame(['12-k'], $certificate->getIds(false));
+        $this->assertSame('12-K', $certificate->getId());
+        $this->assertSame('12-k', $certificate->getId(false));
+    }
+
+    /**
+     * Only the subject alternative name has an ID: another extension that has
+     * the same structure does not, and it is searched in all the extensions, in
+     * whatever place it is.
+     */
+    public function testTheIdOfTheSubjectAlternativeNameIsFoundAfterOtherExtensions(): void
+    {
+        $this->assertSame(['12-3'], $this->fixture('ids-in-other-extensions')->getIds());
+    }
+
+    public function testAnIdThatIsNotInCapitalLettersIsLeftAsItIs(): void
+    {
+        $certificate = $this->fixture('lowercase-id');
+
+        $this->assertSame('10-k', $certificate->getId(false));
+        $this->assertSame('10-K', $certificate->getId());
+    }
+
+    public function testASerialNumberOfZeroIsZero(): void
+    {
+        $this->assertSame('0', $this->selfSigned(['commonName' => 'x'], 0)->getSerialNumber());
+    }
+
+    /**
+     * A name, an email and an issuer are asked from a certificate that has none:
+     * it is an error of the package, not a value that is not a text.
+     */
+    public function testACertificateWithoutCommonNameAndEmailHasNoNameNorEmailNorIssuer(): void
+    {
+        $certificate = $this->selfSigned(['organizationName' => 'Organization'], 7);
+
+        foreach (['getName', 'getEmail', 'getIssuer'] as $method) {
+            try {
+                $certificate->$method();
+                $this->fail($method . '() should have failed.');
+            } catch (CertificateException) {
+                $this->addToAssertionCount(1);
+            }
+        }
+    }
+
+    /**
+     * The certificate is active from the first second of its validity to the
+     * last one.
+     */
+    public function testTheCertificateIsActiveInTheFirstAndTheLastSecondOfItsValidity(): void
+    {
+        $certificate = $this->selfSigned(['commonName' => 'x'], 5);
+
+        $this->assertTrue($certificate->isActive($certificate->getFrom()));
+        $this->assertTrue($certificate->isActive($certificate->getTo()));
+    }
+
+    public function testTheModulusIsWrappedInLinesOf64CharactersByDefault(): void
+    {
+        $lines = explode("\n", $this->selfSigned(['commonName' => 'x'], 5)->getModulus());
+
+        $this->assertGreaterThan(1, count($lines));
+        $this->assertSame(64, strlen($lines[0]));
+    }
+
+    /**
+     * The certificate and its chain are written one after the other, whatever
+     * the number of certificates in the chain.
+     */
+    public function testTheBundleHasTheCertificateAndEveryCertificateOfTheChain(): void
+    {
+        $leaf = $this->selfSigned(['commonName' => 'leaf'], 1);
+        $first = $this->selfSigned(['commonName' => 'first'], 2);
+        $second = $this->selfSigned(['commonName' => 'second'], 3);
+
+        $chained = new Certificate($leaf->getCertificate(), null, [$first->getCertificate(), $second->getCertificate()]);
+
+        $this->assertSame($leaf->getCertificate(), (new Certificate($leaf->getCertificate()))->getCertificateBundle());
+        $this->assertSame(
+            $leaf->getCertificate() . $first->getCertificate() . $second->getCertificate(),
+            $chained->getCertificateBundle()
+        );
+    }
+
+    public function testTheKeysAreNotCleanUnlessTheyAreAskedToBe(): void
+    {
+        $certificate = $this->selfSigned(['commonName' => 'x'], 5);
+
+        $this->assertStringContainsString('-----BEGIN CERTIFICATE-----', $certificate->getKeys()['cert']);
+        $this->assertStringNotContainsString('-----', $certificate->getKeys(true)['cert']);
+    }
+
+    /**
+     * What is left of a certificate without the header and the footer is the
+     * body: without the line breaks that were around it.
+     */
+    public function testTheCleanCertificateHasNoSpacesAroundIt(): void
+    {
+        $clean = $this->selfSigned(['commonName' => 'x'], 5)->getCertificate(true);
+
+        $this->assertSame(trim($clean), $clean);
+        $this->assertNotSame('', $clean);
+    }
 }

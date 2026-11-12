@@ -148,4 +148,23 @@ final class AsymmetricKeyHelperTest extends TestCase
         $this->expectException(CertificateException::class);
         AsymmetricKeyHelper::normalizePrivateKey('');
     }
+
+    /**
+     * The spaces around the body of a certificate or a key are not part of it.
+     */
+    public function testTheSpacesAroundTheBodyAreNotPartOfTheNormalizedCertificate(): void
+    {
+        $this->assertSame(
+            "-----BEGIN CERTIFICATE-----\nAAAAAAAAAA\n-----END CERTIFICATE-----\n",
+            AsymmetricKeyHelper::normalizeCertificate("  \nAAAAAAAAAA\n  ")
+        );
+    }
+
+    public function testTheSpacesAroundTheBodyAreNotPartOfTheNormalizedPrivateKey(): void
+    {
+        $this->assertSame(
+            "-----BEGIN PRIVATE KEY-----\nAAAAAAAAAA\n-----END PRIVATE KEY-----\n",
+            AsymmetricKeyHelper::normalizePrivateKey("  \nAAAAAAAAAA\n  ")
+        );
+    }
 }

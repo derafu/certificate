@@ -123,6 +123,9 @@ final class DistinguishedNameTest extends TestCase
             'TeletexString' => [0x14, "\xE9", 'é'],
             'BMPString' => [0x1E, "\x00\xD1\x00a", 'Ña'],
             'UniversalString' => [0x1C, "\x00\x00\x00\xD1", 'Ñ'],
+            // The bytes of a text that is not valid for its type are given as they are.
+            'PrintableString with bytes that are not ASCII' => [0x13, "\xC3\x91", 'Ñ'],
+            'UTF8String with bytes that are not UTF-8' => [0x0C, "\xFF", "\xFF"],
         ];
     }
 
@@ -321,6 +324,20 @@ final class DistinguishedNameTest extends TestCase
             'with a space at the end, after an escaped backslash' => ['CN=a\\\\ ', 'CN=a\\\\'],
             'with a value that is empty' => ['CN=', 'CN='],
             'with an equal sign escaped in the type' => ['A\=B=c', 'a\=b=C'],
+            'with an escaped comma at the end' => ['CN=a\,', 'CN=a\,'],
+            'with an empty value and the type as its OID' => ['CN=', '2.5.4.3='],
+            'with a space before the value in hexadecimal' => ['CN= #0c0141', 'CN=A'],
+            'with a space after the value in hexadecimal' => ['CN=#0c0141 ', 'CN=A'],
+            'with spaces after the value in hexadecimal' => ['CN=#0c0141  ', 'CN=A'],
+            'with an escaped backslash and an escaped space at the end' => ['CN=a\\\\\\ ', 'CN=a\\\\'],
+            'with an escaped digit at the end' => ['CN=a\2', 'CN=a2'],
+            'with an escaped byte at the end' => ['CN=a\2C', 'CN=a\,'],
+            'with a backslash and a digit and a letter that is not hexadecimal' => ['CN=\2G', 'CN=2G'],
+            'with the DER of a text that is not complete' => ['CN=#0c05', 'CN=\#0c05'],
+            'with the DER of something that is not a text' => ['CN=#020105', 'CN=\#020105'],
+            'with the DER of a TeletexString' => ['CN=#1401e9', 'CN=é'],
+            'with the DER of a text and bytes after it' => ['CN=#0c01410000', 'CN=\#0c01410000'],
+            'with the same DER of a text and bytes after it' => ['CN=#0c01410000', 'CN=#0c01410000'],
         ];
     }
 
@@ -385,5 +402,186 @@ final class DistinguishedNameTest extends TestCase
     {
         $this->assertTrue(DistinguishedName::equals('CN=#0c05', 'CN=#0c05'));
         $this->assertFalse(DistinguishedName::equals('CN=#0c05', 'CN=#0c06'));
+    }
+
+    public function testTheTypeAndTheValueOfAnAttributeAreNotMixedUp(): void
+    {
+        $this->assertFalse(DistinguishedName::equals('CN=1', '2.5.4.31='));
+    }
+
+    public function testAValueInHexadecimalWithCharactersThatAreNotHexadecimalIsNotAName(): void
+    {
+        $this->assertFalse(DistinguishedName::equals('CN=#g0', 'CN=#g0'));
+    }
+
+    /**
+     * A first number that has the first two arcs: the arc is its quotient by 40,
+     * up to 2.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function oidProvider(): array
+    {
+        return [
+            'the first arc 0, the last of its second arcs' => ['0.39.1'],
+            'the first arc 1, the first of its second arcs' => ['1.0.5'],
+            'the first arc 1, the last of its second arcs' => ['1.38.9'],
+            'the first arc 2, the first of its second arcs' => ['2.1.3'],
+            'the first arc 2, with a second arc that is large' => ['2.100.3'],
+        ];
+    }
+
+    #[DataProvider('oidProvider')]
+    public function testTheOidIsWrittenWithTheArcsThatItHas(string $oid): void
+    {
+        $this->assertSame($oid . '=#0c0161', $this->issuerOf([[$this->attribute($oid, $this->tlv(0x0C, 'a'))]]));
+    }
+
+    /**
+     * The part of the certificate that goes before its issuer.
+     */
+    private function head(): string
+    {
+        return $this->tlv(0xA0, $this->tlv(0x02, "\x02"))
+            . $this->tlv(0x02, "\x01")
+            . $this->tlv(self::SEQUENCE, $this->oid('1.2.840.113549.1.1.11'));
+    }
+
+    private function issuerThatIsA(): string
+    {
+        return $this->names([[$this->attribute('2.5.4.3', $this->tlv(0x0C, 'a'))]]);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function wrongTagProvider(): array
+    {
+        return [
+            'the certificate' => ['certificate'],
+            'the certificate to be signed' => ['tbs'],
+            'the issuer' => ['issuer'],
+            'a set of the name' => ['set'],
+            'an attribute' => ['attribute'],
+            'the type of an attribute' => ['type'],
+        ];
+    }
+
+    /**
+     * Each element has the tag that it must have, so a DER that has another one
+     * is not read as if it had the right one.
+     */
+    #[DataProvider('wrongTagProvider')]
+    public function testAnElementWithAnotherTagIsAnError(string $wrong): void
+    {
+        $attribute = $this->tlv(self::SEQUENCE, $this->oid('2.5.4.3') . $this->tlv(0x0C, 'a'));
+        $set = $this->tlv(self::SET, $attribute);
+        $issuer = $this->tlv(self::SEQUENCE, $set);
+
+        $der = match ($wrong) {
+            'certificate' => $this->tlv(0x31, $this->tlv(self::SEQUENCE, $this->head() . $issuer)),
+            'tbs' => $this->tlv(self::SEQUENCE, $this->tlv(0x31, $this->head() . $issuer)),
+            'issuer' => $this->tlv(self::SEQUENCE, $this->tlv(self::SEQUENCE, $this->head() . $this->tlv(0x31, $set))),
+            'set' => $this->tlv(self::SEQUENCE, $this->tlv(self::SEQUENCE, $this->head() . $this->tlv(self::SEQUENCE, $this->tlv(self::SEQUENCE, $attribute)))),
+            'attribute' => $this->tlv(self::SEQUENCE, $this->tlv(self::SEQUENCE, $this->head() . $this->tlv(self::SEQUENCE, $this->tlv(self::SET, $this->tlv(0x31, $this->oid('2.5.4.3') . $this->tlv(0x0C, 'a')))))),
+            default => $this->tlv(self::SEQUENCE, $this->tlv(self::SEQUENCE, $this->head() . $this->tlv(self::SEQUENCE, $this->tlv(self::SET, $this->tlv(self::SEQUENCE, $this->tlv(0x04, 'x') . $this->tlv(0x0C, 'a')))))),
+        };
+
+        $this->expectException(CertificateException::class);
+
+        DistinguishedName::issuerOf($der);
+    }
+
+    /**
+     * A certificate to be signed that ends where its issuer should start has no
+     * issuer, even if there is something after it in the certificate.
+     */
+    public function testACertificateWithoutIssuerIsAnErrorEvenIfSomethingFollowsIt(): void
+    {
+        $der = $this->tlv(self::SEQUENCE, $this->tlv(self::SEQUENCE, $this->head()) . $this->tlv(self::SEQUENCE, ''));
+
+        $this->expectException(CertificateException::class);
+
+        DistinguishedName::issuerOf($der);
+    }
+
+    public function testALengthThatIsIndefiniteIsAnError(): void
+    {
+        $content = $this->tlv(self::SEQUENCE, $this->head() . $this->issuerThatIsA() . $this->tlv(self::SEQUENCE, ''));
+
+        $this->expectException(CertificateException::class);
+
+        DistinguishedName::issuerOf("\x30\x80" . $content);
+    }
+
+    public function testALengthThatHasFiveBytesIsAnError(): void
+    {
+        $content = $this->tlv(self::SEQUENCE, $this->head() . $this->issuerThatIsA() . $this->tlv(self::SEQUENCE, ''));
+
+        $this->expectException(CertificateException::class);
+
+        DistinguishedName::issuerOf("\x30\x85\x00\x00\x00\x00" . pack('C', strlen($content)) . $content);
+    }
+
+    public function testALengthThatHasFourBytesIsRead(): void
+    {
+        $content = $this->tlv(self::SEQUENCE, $this->head() . $this->issuerThatIsA() . $this->tlv(self::SEQUENCE, ''));
+
+        $this->assertSame(
+            'CN=a',
+            DistinguishedName::issuerOf("\x30\x84\x00\x00\x00" . pack('C', strlen($content)) . $content)
+        );
+    }
+
+    /**
+     * The byte `0x80` is not the length 128: it is the indefinite one, even if
+     * what follows is exactly 128 bytes.
+     */
+    public function testTheByteThatMeansIndefiniteIsNotALengthOf128(): void
+    {
+        $base = $this->head() . $this->issuerThatIsA();
+        $filler = $this->tlv(self::SEQUENCE, str_repeat("\x00", 124 - strlen($base)));
+        $element = $this->tlv(self::SEQUENCE, $base . $filler);
+        $this->assertSame(128, strlen($element));
+
+        $this->expectException(CertificateException::class);
+
+        DistinguishedName::issuerOf("\x30\x80" . $element);
+    }
+
+    /**
+     * The length of an element can be the last bytes of the certificate.
+     */
+    public function testAnIssuerWhoseLengthIsAtTheEndOfTheCertificateIsRead(): void
+    {
+        $der = $this->tlv(self::SEQUENCE, $this->tlv(self::SEQUENCE, $this->head() . "\x30\x81\x00"));
+
+        $this->assertSame('', DistinguishedName::issuerOf($der));
+    }
+
+    /**
+     * The value in hexadecimal is the encoding of one value: a text and bytes
+     * after it is not the text, so it is not the same as the text.
+     */
+    public function testAValueInHexadecimalWithBytesAfterTheElementIsNotTheElement(): void
+    {
+        $this->assertFalse(DistinguishedName::equals('CN=#0c01410000', 'CN=A'));
+        $this->assertFalse(DistinguishedName::equals('CN=#0c01410000', 'CN=#0c01410001'));
+        $this->assertFalse(DistinguishedName::equals('CN=#0c01410000', 'CN=#0c0141'));
+    }
+
+    /**
+     * A length that goes beyond the end of the DER is an error by itself: the
+     * rest of the certificate is well made.
+     */
+    public function testALengthThatGoesBeyondTheEndOfTheCertificateIsAnError(): void
+    {
+        $der = $this->certificate($this->names([[$this->attribute('2.5.4.3', $this->tlv(0x0C, 'a'))]]));
+        $this->assertLessThan(0x80, ord($der[1]));
+        $der[1] = pack('C', ord($der[1]) + 1);
+
+        $this->expectException(CertificateException::class);
+
+        DistinguishedName::issuerOf($der);
     }
 }

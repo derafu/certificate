@@ -355,7 +355,8 @@ final class DistinguishedName
 
     /**
      * Gives the text that the DER of a value has, or the DER in hexadecimal if
-     * it is not a text.
+     * it is not a text, or if it is not exactly one element (it is not complete,
+     * or something follows it): its octets are then what is compared.
      */
     private static function textOfDer(string $der): string
     {
@@ -365,7 +366,7 @@ final class DistinguishedName
         } catch (CertificateException) {
             return '#' . bin2hex($der);
         }
-        if ($encoding === null) {
+        if ($encoding === null || $end !== strlen($der)) {
             return '#' . bin2hex($der);
         }
 

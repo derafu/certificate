@@ -146,4 +146,30 @@ final class IssuerSerialTest extends TestCase
 
         DistinguishedName::serialDerOf("\x30\x00");
     }
+
+    /**
+     * An element of 128 bytes is the first that needs the long form of the
+     * length: the byte `0x80` alone would be the indefinite length.
+     */
+    public function testAnElementOf128BytesUsesTheLongFormOfTheLength(): void
+    {
+        // A name of 128 bytes: a sequence with a set with an attribute with a
+        // text of 115 bytes.
+        $text = $this->tlv(0x0C, str_repeat('x', 115));
+        $attribute = $this->tlv(0x30, "\x06\x03\x55\x04\x03" . $text);
+        $issuer = $this->tlv(0x30, $this->tlv(0x31, $attribute));
+        $this->assertSame(128, strlen($issuer));
+
+        $der = $this->tlv(0x30, $this->tlv(0x30, $this->tlv(0x02, "\x01") . $this->tlv(0x30, "\x06\x01\x2A") . $issuer . $this->tlv(0x30, '')));
+
+        // The `[4]` that holds the issuer has 128 bytes of content.
+        $this->assertStringContainsString("\xA4\x81\x80" . $issuer, IssuerSerial::derOf($der));
+    }
+
+    private function tlv(int $tag, string $content): string
+    {
+        $length = strlen($content);
+
+        return pack('C', $tag) . ($length < 0x80 ? pack('C', $length) : "\x81" . pack('C', $length)) . $content;
+    }
 }

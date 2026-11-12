@@ -23,6 +23,7 @@ use Derafu\Certificate\Service\CertificateFaker;
 use Derafu\Certificate\Service\CertificateLoader;
 use Derafu\Certificate\Service\OpenSsl;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(OpenSsl::class)]
@@ -442,5 +443,61 @@ final class CertificateTest extends TestCase
 
         $this->expectException(CertificateException::class);
         $selfSigned->toPkcs12();
+    }
+
+    public function testTheSubjectIsTheDefaultOneUnlessItIsSet(): void
+    {
+        $certificate = $this->loader->loadFromArray((new SelfSignedCertificate())->toArray());
+
+        $this->assertSame('Daniel Bot', $certificate->getName());
+        $this->assertSame('daniel.bot@example.com', $certificate->getEmail());
+    }
+
+    /**
+     * @return array<string, array{string, string, string}>
+     */
+    public static function requiredSubjectProvider(): array
+    {
+        return [
+            'the common name' => ['', 'daniel.bot@example.com', '11222333-9'],
+            'the email address' => ['Daniel Bot', '', '11222333-9'],
+            'the serial number' => ['Daniel Bot', 'daniel.bot@example.com', ''],
+        ];
+    }
+
+    #[DataProvider('requiredSubjectProvider')]
+    public function testEachOfTheCommonNameTheEmailAndTheSerialNumberIsRequired(string $name, string $email, string $serial): void
+    {
+        $this->expectException(CertificateException::class);
+
+        (new SelfSignedCertificate())->setSubject(CN: $name, emailAddress: $email, serialNumber: $serial);
+    }
+
+    public function testTheSerialNumbersOfTheSubjectAndTheIssuerAreInCapitalLetters(): void
+    {
+        $certificate = $this->loader->loadFromArray(
+            (new SelfSignedCertificate())
+                ->setSubject(serialNumber: 'ab-k')
+                ->setIssuer(serialNumber: 'cd-k')
+                ->toArray()
+        );
+
+        $this->assertSame('AB-K', $certificate->getId(false));
+        $this->assertSame('CD-K', $certificate->getData()['issuer']['serialNumber']);
+    }
+
+    public function testTheDefaultValidityIs365Days(): void
+    {
+        $data = $this->faker->createFake()->getData();
+
+        $this->assertSame(365 * 86400, $data['validTo_time_t'] - $data['validFrom_time_t']);
+    }
+
+    public function testTheCertificateOfTheSubjectAndTheOneOfTheIssuerHaveTheirSerialNumbers(): void
+    {
+        $certificate = $this->faker->createFake();
+
+        $this->assertSame('69', $certificate->getSerialNumber());
+        $this->assertSame('666', (new Certificate($certificate->getCertificateChain()[0]))->getSerialNumber());
     }
 }

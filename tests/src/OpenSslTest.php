@@ -24,6 +24,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
+use RuntimeException;
 use Symfony\Component\Translation\Translator;
 
 /**
@@ -323,5 +324,87 @@ final class OpenSslTest extends TestCase
         $this->assertInstanceOf(TranslatableInterface::class, $result);
 
         return $result;
+    }
+
+    /**
+     * The warnings of PHP that happen in a call are taken by the service: none
+     * is left for the handler of PHP, which would write it.
+     */
+    public function testTheWarningsOfACallAreNotLeftToTheHandlerOfPhp(): void
+    {
+        $key = $this->openSsl->pkeyNew();
+        error_clear_last();
+
+        try {
+            $this->openSsl->csrNew(['countryName' => 'CLX', 'commonName' => 'Test'], $key);
+            $this->fail('It should have failed.');
+        } catch (CertificateException) {
+            $this->assertNull(error_get_last());
+        }
+    }
+
+    /**
+     * The handler of the errors that was before is the one that is after a call,
+     * also when the call throws.
+     */
+    public function testTheHandlerOfErrorsThatWasBeforeIsRestoredWhenTheCallThrows(): void
+    {
+        $marker = static fn (): bool => true;
+        set_error_handler($marker);
+        $scope = new ReflectionMethod($this->openSsl, 'scope');
+        $errors = [];
+
+        try {
+            $scope->invokeArgs($this->openSsl, [static function (): never {
+                throw new RuntimeException('The call failed.');
+            }, &$errors]);
+            $this->fail('The exception was not thrown.');
+        } catch (RuntimeException) {
+            // It is what the call does.
+        } finally {
+            $active = set_error_handler(static fn (): bool => true);
+            restore_error_handler();
+            restore_error_handler();
+        }
+
+        $this->assertSame($marker, $active);
+    }
+
+    /**
+     * Every error that a call left in the queue is in the exception.
+     */
+    public function testAllTheErrorsThatTheCallLeftAreInTheException(): void
+    {
+        $key = $this->openSsl->pkeyNew();
+        openssl_pkey_export($key, $encrypted, 'a passphrase');
+        $this->assertIsString($encrypted);
+
+        try {
+            $this->openSsl->pkeyGetPrivate($encrypted, 'another passphrase');
+            $this->fail('It should have failed.');
+        } catch (CertificateException $e) {
+            $this->assertGreaterThan(1, count($e->getErrors()));
+        }
+    }
+
+    public function testTheCodeOfAnErrorIsKnownInAnyCase(): void
+    {
+        $this->assertSame(
+            'Unsupported encryption algorithm or method (Error #0308010C).',
+            (string) $this->explain('error:0308010c:lib:func::reason')
+        );
+    }
+
+    /**
+     * A certificate is signed with the serial number 0 unless another is given.
+     */
+    public function testACertificateIsSignedWithTheSerialNumberZeroByDefault(): void
+    {
+        $key = $this->openSsl->pkeyNew();
+        $certificate = $this->openSsl->csrSign($this->openSsl->csrNew(['commonName' => 'Test'], $key), null, $key, 1);
+        openssl_x509_export($certificate, $pem);
+        $this->assertIsString($pem);
+
+        $this->assertSame('0', (string) $this->openSsl->x509Parse($pem)['serialNumber']);
     }
 }

@@ -140,4 +140,19 @@ final class CertificateValidatorTest extends TestCase
             $this->assertStringContainsString('2020-01-01T23:59:59', $e->getMessage());
         }
     }
+
+    /**
+     * The format is validated on the ID as the certificate has it: the capital
+     * letters are not made before.
+     */
+    public function testTheFormatOfTheIdIsValidatedOnTheIdAsTheCertificateHasIt(): void
+    {
+        $certificate = new Certificate((string) file_get_contents(__DIR__ . '/../fixtures/lowercase-id.cert.pem'));
+
+        (new CertificateValidator('/^\d+-[a-z]$/'))->validate($certificate);
+
+        $this->expectException(CertificateException::class);
+
+        (new CertificateValidator('/^\d+-[A-Z]$/'))->validate($certificate);
+    }
 }

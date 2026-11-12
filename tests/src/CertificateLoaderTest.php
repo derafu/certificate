@@ -270,4 +270,28 @@ final class CertificateLoaderTest extends TestCase
             $this->assertSame([], $e->getErrors());
         }
     }
+
+    /**
+     * When an array has the keys of the certificate with both of their names,
+     * `cert`, `pkey` and `chain` are the ones that are used.
+     */
+    public function testTheShortNamesOfTheArrayAreTheOnesThatAreUsedWhenThereAreBoth(): void
+    {
+        $first = $this->faker->createFake(name: 'First');
+        $second = $this->faker->createFake(name: 'Second');
+
+        $certificate = $this->loader->loadFromArray([
+            'cert' => $first->getCertificate(),
+            'certificate' => $second->getCertificate(),
+            'pkey' => $first->getPrivateKey(),
+            'privateKey' => $second->getPrivateKey(),
+            'chain' => $first->getCertificateChain(),
+            'extracerts' => $second->getCertificateChain(),
+        ]);
+
+        $this->assertSame($first->getCertificate(), $certificate->getCertificate());
+        $this->assertSame($first->getPrivateKey(), $certificate->getPrivateKey());
+        $this->assertSame($first->getCertificateChain(), $certificate->getCertificateChain());
+        $this->assertNotSame($second->getCertificateChain(), $certificate->getCertificateChain());
+    }
 }
